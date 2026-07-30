@@ -35,8 +35,34 @@ export function App() {
   const [isRetaFinal, setIsRetaFinal] = useState(true);
   const [selectedTurmaName, setSelectedTurmaName] = useState('SED ACT 2026');
 
-  // Site Configuration state editable via Admin Panel
-  const [siteConfig, setSiteConfig] = useState<SiteConfig>(DEFAULT_SITE_CONFIG);
+  // Site Configuration state editable via Admin Panel with localStorage persistence
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
+    try {
+      const saved = localStorage.getItem('jpschool_site_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_SITE_CONFIG;
+  });
+
+  const handleUpdateSiteConfig = (newConfig: SiteConfig) => {
+    setSiteConfig(newConfig);
+    try {
+      localStorage.setItem('jpschool_site_config', JSON.stringify(newConfig));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResetSiteConfig = () => {
+    try {
+      localStorage.removeItem('jpschool_site_config');
+    } catch (e) {
+      console.error(e);
+    }
+    setSiteConfig(DEFAULT_SITE_CONFIG);
+  };
 
   // Cart Drawer state
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -125,46 +151,44 @@ export function App() {
       {/* VIEW 1: SALES SITE (ÁREA PÚBLICA) */}
       {currentView === 'sales' && (
         <div className="flex-1 flex flex-col">
-          <Hero
-            heroTitle={siteConfig.heroTitle}
-            heroHighlight={siteConfig.heroHighlight}
-            heroSubtitle={siteConfig.heroSubtitle}
-            ctaButtonText={siteConfig.ctaButtonText}
-            slides={siteConfig.carouselSlides}
-            onStartLearner={() => {
-              if (!isLoggedIn) {
+          {siteConfig.blockVisibility?.showHero !== false && (
+            <Hero
+              heroTitle={siteConfig.heroTitle}
+              heroHighlight={siteConfig.heroHighlight}
+              heroSubtitle={siteConfig.heroSubtitle}
+              ctaButtonText={siteConfig.ctaButtonText}
+              slides={siteConfig.carouselSlides}
+              onStartLearner={() => {
+                if (!isLoggedIn) {
+                  handleLoginWithUser(TEST_USERS[2]); // jeanrsl
+                }
+                setCurrentView('platform');
+              }}
+              onSelectPlanClick={() => {
+                const el = document.getElementById('planos');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+            />
+          )}
+
+          {siteConfig.blockVisibility?.showPillars !== false && (
+            <Pillars features={siteConfig.pillarsFeatures} />
+          )}
+
+          {siteConfig.blockVisibility?.showPlans !== false && (
+            <Pricing
+              plans={siteConfig.plans}
+              selectedTurmaName={selectedTurmaName}
+              onEnrollSuccess={() => {
                 handleLoginWithUser(TEST_USERS[2]); // jeanrsl
-              }
-              setCurrentView('platform');
-            }}
-            onSelectPlanClick={() => {
-              const el = document.getElementById('planos');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
+                setCurrentView('platform');
+              }}
+            />
+          )}
 
-          <Pillars features={siteConfig.pillarsFeatures} />
-
-          <ClassesCatalog
-            onSelectTurma={(name) => {
-              setSelectedTurmaName(name);
-              const foundPlan = siteConfig.plans.find((p) => p.name.toLowerCase().includes(name.toLowerCase())) || siteConfig.plans[0];
-              setCartPlan(foundPlan);
-              const el = document.getElementById('planos');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          />
-
-          <Pricing
-            plans={siteConfig.plans}
-            selectedTurmaName={selectedTurmaName}
-            onEnrollSuccess={() => {
-              handleLoginWithUser(TEST_USERS[2]); // jeanrsl
-              setCurrentView('platform');
-            }}
-          />
-
-          <SocialProof />
+          {siteConfig.blockVisibility?.showTestimonials !== false && (
+            <SocialProof testimonials={siteConfig.testimonials} />
+          )}
 
           <Footer
             companyName={siteConfig.companyName}
@@ -241,8 +265,8 @@ export function App() {
       {currentView === 'admin_ti' && (
         <AdminPanel
           siteConfig={siteConfig}
-          onUpdateConfig={(newConfig) => setSiteConfig(newConfig)}
-          onResetDefault={() => setSiteConfig(DEFAULT_SITE_CONFIG)}
+          onUpdateConfig={handleUpdateSiteConfig}
+          onResetDefault={handleResetSiteConfig}
           onExitAdmin={() => setCurrentView('sales')}
           onPreviewSalesSite={() => setCurrentView('sales')}
         />

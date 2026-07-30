@@ -1,7 +1,24 @@
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
-import { OFFICIAL_SOURCES, MOCK_QUESTIONS, WHITELIST_DOMAINS } from './src/data/mockDatabase.js';
+import {
+  OFFICIAL_SOURCES,
+  MOCK_QUESTIONS,
+  WHITELIST_DOMAINS,
+  TEST_USERS,
+  MOCK_MATRICULAS,
+  MOCK_PAGAMENTOS,
+  MOCK_CODIGOS_ACESSO,
+  MOCK_TICKETS,
+  MOCK_LOGS_AUDITORIA,
+  MOCK_CONFIGURACOES,
+  MOCK_LEADS,
+  MOCK_CAMPANHAS_COTA,
+  validarPoliticaSenha,
+  verificarTentativasLogin,
+  registrarTentativaLoginFalha,
+  resetarTentativasLogin,
+} from './src/data/mockDatabase.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -107,8 +124,9 @@ app.post('/api/estudio/executar', async (req, res) => {
       ? 'oficial+externo'
       : 'oficial';
 
+    const userBanca = selectedSources[0]?.banca || 'FEPESE / ACAFE';
     const globalSystemPrompt = `
-Você é o Tutor New School AI, especialista em concursos públicos de professores em Santa Catarina (SED-SC e Prefeituras).
+Você é o Tutor JPSchool AI, especialista em concursos públicos de professores em Santa Catarina (SED-SC e Prefeituras).
 
 REGRAS INVIOLÁVEIS DE CITAÇÃO E TRANSMISSÃO:
 1. Use PRIORITARIAMENTE os TRECHOS DA BIBLIOTECA OFICIAL fornecidos:
@@ -119,8 +137,8 @@ ${sourcesSummary}
    - Se o assunto envolver conhecimento complementar externo (não presente no edital oficial), use a tag: [Complemento externo: planalto.gov.br] e insira a nota: "Esta parte da resposta não consta na biblioteca oficial — buscamos a informação complementar em fontes externas."
 
 3. Linguagem acolhedora, clara, sem jargões técnicos de TI (como "RAG", "prompt", "LLM").
-4. Foco prático para o professor da rede pública de Santa Catarina.
-BANCA PRINCIPAL: FEPESE / ACAFE
+4. Foco prático para o professor da rede pública.
+BANCA DO CURSO: ${userBanca}
 MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
     `;
 
@@ -240,12 +258,12 @@ Distribuímos sua rotina em blocos de 45 minutos com foco na banca FEPESE/ACAFE.
    A banca gosta de trocar o termo "Conselho Tutelar" por "Direção Regional" e alterar a duração do estágio probatório para 2 anos. Fique atento!${notaExterna}`;
 
     case 'tirar_duvida':
-      return `💬 **Resposta do Tutor New School AI**
+      return `💬 **Resposta do Tutor JPSchool AI**
 
 📗 [Fonte oficial: Edital SED-SC e LDB 9.394/96]
 Olá, Professor(a)! Analisando sua dúvida sobre **"${prompt || 'Processo Seletivo ACT'}"**:
 
-Em Santa Catarina, os processos seletivos para professores ACTs priorizam a pontuação combinada de **tempo de serviço na rede pública estadual** e **habilitação acadêmica (Licenciatura Plena/Pós-Graduação)**. Além disso, na prova objetiva promovida pela FEPESE/ACAFE, as questões de Legislação e Didática têm peso decisivo no desempate.
+Em Santa Catarina, os processos seletivos para professores ACTs priorizam a pontuação combinada de **tempo de serviço na rede pública estadual** e **habilitação acadêmica (Licenciatura Plena/Pós-Graduação)**. Além disso, na prova objetiva promovida pela banca oficial, as questões de Legislação e Didática têm peso decisivo no desempate.
 
 Fique atento aos prazos de apresentação de documentos e mantenha suas anotações revisadas no nosso Estúdio!${notaExterna}`;
 
@@ -300,6 +318,139 @@ O conteúdo solicitado foi gerado com sucesso respeitando rigorosamente a litera
 • **Instrução para a Prova:** Revise os pontos de maior incidência identificados no nosso Raio-X!${notaExterna}`;
   }
 }
+
+// Middleware de Autenticação e Matriz de Permissões
+function requireAuth(allowedRoles?: string[]) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization || (req.headers['x-user-role'] as string);
+
+    if (!authHeader) {
+      return res.status(401).json({
+        error: 'Acesso não autorizado. Autenticação obrigatória (token/sessão não informado).',
+        code: 'UNAUTHENTICATED',
+      });
+    }
+
+    let role: string | undefined;
+
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim().toLowerCase();
+      const matchedUser = TEST_USERS.find(
+        (u) => u.usuario.toLowerCase() === token || u.role === token
+      );
+      if (matchedUser) {
+        role = matchedUser.role;
+      } else {
+        role = token;
+      }
+    } else {
+      role = authHeader.toLowerCase();
+    }
+
+    const validRoles = ['super_admin', 'admin', 'ti', 'cliente'];
+    if (!role || !validRoles.includes(role)) {
+      return res.status(401).json({
+        error: 'Acesso não autorizado. Sessão ou token inválido.',
+        code: 'INVALID_SESSION',
+      });
+    }
+
+    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+      return res.status(403).json({
+        error: `Acesso negado. O papel '${role}' não possui permissão para acessar este recurso.`,
+        code: 'FORBIDDEN',
+      });
+    }
+
+    (req as any).userRole = role;
+    next();
+  };
+}
+
+// API Routes for Onda 1 Entities (Protected by Auth & Role Permissions)
+app.get('/api/matriculas', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ matriculas: MOCK_MATRICULAS });
+});
+
+app.get('/api/pagamentos', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ pagamentos: MOCK_PAGAMENTOS });
+});
+
+app.get('/api/codigos-acesso', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ codigos: MOCK_CODIGOS_ACESSO });
+});
+
+app.get('/api/tickets', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req, res) => {
+  res.json({ tickets: MOCK_TICKETS });
+});
+
+app.get('/api/logs-auditoria', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ logs: MOCK_LOGS_AUDITORIA });
+});
+
+app.get('/api/configuracoes', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ configuracoes: MOCK_CONFIGURACOES });
+});
+
+app.get('/api/leads', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ leads: MOCK_LEADS });
+});
+
+app.get('/api/campanhas-cota', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ campanhas: MOCK_CAMPANHAS_COTA });
+});
+
+// API Routes for Onda 2 Security Rules (Backend Logic)
+app.post('/api/auth/validar-senha', (req, res) => {
+  const { senha } = req.body;
+  const validacao = validarPoliticaSenha(senha);
+  res.json(validacao);
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { usuario, senha } = req.body;
+
+  // 1. Check rate limit (5 failed attempts -> 15 min lock)
+  const verificacao = verificarTentativasLogin(usuario || '');
+  if (!verificacao.permitido) {
+    return res.status(429).json({
+      error: `Usuário temporariamente bloqueado. Muitas tentativas incorretas. Tente novamente em ${verificacao.tempoRestanteMinutos} minuto(s).`,
+      bloqueado: true,
+      tempoRestanteMinutos: verificacao.tempoRestanteMinutos,
+    });
+  }
+
+  // 2. Authenticate credentials (Any failed password counts as 1 attempt)
+  const userMatch = TEST_USERS.find(
+    (u) => u.usuario.toLowerCase() === (usuario || '').trim().toLowerCase() && u.senha === senha
+  );
+
+  if (!userMatch) {
+    const tentativa = registrarTentativaLoginFalha(usuario || '');
+    return res.status(401).json({
+      error: 'Usuário ou senha incorretos.',
+      bloqueado: tentativa.bloqueado,
+      tentativasRestantes: tentativa.tentativasRestantes,
+    });
+  }
+
+  // 3. Success -> reset attempts counter and add audit log
+  resetarTentativasLogin(usuario);
+  MOCK_LOGS_AUDITORIA.push({
+    id: MOCK_LOGS_AUDITORIA.length + 1,
+    usuarioId: userMatch.id,
+    usuarioNome: userMatch.nome,
+    papel: userMatch.role,
+    acao: 'LOGIN_SUCESSO',
+    detalhes: `Autenticação bem sucedida para o papel ${userMatch.role}`,
+    dadosAntes: {},
+    dadosDepois: { loginTimestamp: new Date().toISOString() },
+    ip: req.ip || '127.0.0.1',
+    criadoEm: new Date().toISOString(),
+  });
+
+  res.json({ success: true, user: userMatch });
+});
 
 // Start Server Boot
 async function startServer() {

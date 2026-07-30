@@ -133,4 +133,35 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     { id: 'cat-hist-geo-sc', nome: 'História e Geografia de SC', descricao: 'Formação Territorial, Economia e Aspectos Históricos de SC', corBadge: 'bg-rose-100 text-rose-800' },
     { id: 'cat-provas', nome: 'Provas Anteriores', descricao: 'Provas Anteriores Comentadas FEPESE, ACAFE, IBADE e FURB', corBadge: 'bg-slate-200 text-slate-800' },
   ],
+  testimonials: [
+    {
+      id: 'test-1',
+      name: 'Profa. Juliana Medeiros',
+      role: 'Aprovada ACT 1º Lugar - Joinville/SC',
+      text: 'O Radar de Pegadinhas da FEPESE salvou minha prova! O Tutor de IA mostrou exatamente onde a banca tentava me enganar nos prazos do Estágio Probatório.',
+      stars: 5,
+    },
+    {
+      id: 'test-2',
+      name: 'Prof. Carlos Eduardo Silveira',
+      role: 'Aprovado SED-SC Anos Iniciais - Florianópolis',
+      text: 'Trabalho o dia todo em duas escolas e não tinha tempo para resumos longos. O resumo em áudio e os simulados diretos no botão me economizaram semanas de estudo.',
+      stars: 5,
+    },
+    {
+      id: 'test-3',
+      name: 'Profa. Regina Coeli Santos',
+      role: 'Aprovada Prefeitura de Blumenau',
+      text: 'Tinha receio de não saber mexer em IA. A interface do JPSchool é super simples, sem termos difíceis. É só clicar e estudar!',
+      stars: 5,
+    },
+  ],
+  blockVisibility: {
+    showHero: true,
+    showCarousel: true,
+    showPillars: true,
+    showPlans: true,
+    showTestimonials: true,
+    showCategories: true,
+  },
 };

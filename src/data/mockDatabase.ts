@@ -1,6 +1,30 @@
-import { FonteEstudo, EstudioFeature, Questao, AnotacaoItem, CotasState, User } from '../types';
+import {
+  FonteEstudo,
+  EstudioFeature,
+  Questao,
+  AnotacaoItem,
+  CotasState,
+  User,
+  Matricula,
+  Pagamento,
+  CodigoAcesso,
+  Ticket,
+  LogAuditoria,
+  ConfiguracaoSistema,
+  Lead,
+  CampanhaCota,
+} from '../types';
 
 export const TEST_USERS: User[] = [
+  {
+    id: 0,
+    usuario: 'superadmin',
+    senha: '123456',
+    nome: 'Super Admin Master',
+    email: 'superadmin@jpschool.ia',
+    role: 'super_admin',
+    turmaNome: 'Acesso Total ao Sistema',
+  },
   {
     id: 1,
     usuario: 'admin',
@@ -34,6 +58,208 @@ export const TEST_USERS: User[] = [
     onboardingOk: true,
   },
 ];
+
+// Collections for Onda 1 (Modelo de Dados do Contrato v2)
+export const MOCK_MATRICULAS: Matricula[] = [
+  {
+    id: 1,
+    usuarioId: 3,
+    usuarioNome: 'Jean RSL',
+    cursoId: 101,
+    cursoNome: 'Professor de Educação Básica - SED/SC 2026',
+    status: 'ativa',
+    dataInicio: '2026-01-15',
+    dataFim: '2026-10-30',
+    origem: 'compra',
+  },
+];
+
+export const MOCK_PAGAMENTOS: Pagamento[] = [
+  {
+    id: 1,
+    usuarioId: 3,
+    usuarioNome: 'Jean RSL',
+    planoId: 'plano-reta-final',
+    valor_centavos: 49700,
+    parcelas: 10,
+    metodo: 'pix',
+    status: 'aprovado',
+    gateway: 'mercadopago',
+    transacaoId: 'MP-984210398',
+    criadoEm: '2026-01-15T10:30:00Z',
+  },
+];
+
+export const MOCK_CODIGOS_ACESSO: CodigoAcesso[] = [
+  {
+    id: 1,
+    codigo: 'JP-TRIAL-7DIAS',
+    tipo: 'trial',
+    diasValidade: 7,
+    usado: false,
+    criadoEm: '2026-07-01T12:00:00Z',
+    cursoId: 101,
+    criadoPor: 'superadmin',
+  },
+  {
+    id: 2,
+    codigo: 'JP-CORTESIA-30D',
+    tipo: 'cortesia',
+    diasValidade: 30,
+    usado: true,
+    usadoPorUsuarioId: 3,
+    usadoEm: '2026-07-10T14:22:00Z',
+    criadoEm: '2026-07-01T12:00:00Z',
+    cursoId: 101,
+    criadoPor: 'admin',
+  },
+];
+
+export const MOCK_TICKETS: Ticket[] = [
+  {
+    id: 1,
+    usuarioId: 3,
+    usuarioNome: 'Jean RSL',
+    assunto: 'Dúvida sobre simulado inédito',
+    mensagem: 'Olá, gostaria de saber se as questões do simulado possuem comentário em áudio.',
+    status: 'resolvido',
+    prioridade: 'media',
+    respostas: [
+      {
+        autor: 'Suporte JPSchool',
+        mensagem: 'Olá Jean! Sim, todas as questões possuem comentário detalhado.',
+        criadoEm: '2026-07-20T11:00:00Z',
+      }
+    ],
+    criadoEm: '2026-07-20T09:15:00Z',
+  },
+];
+
+export const MOCK_LOGS_AUDITORIA: LogAuditoria[] = [
+  {
+    id: 1,
+    usuarioId: 0,
+    usuarioNome: 'Super Admin Master',
+    papel: 'super_admin',
+    acao: 'SISTEMA_INICIALIZADO',
+    detalhes: 'Estruturas de dados Onda 1 inicializadas conforme contrato v2',
+    dadosAntes: {},
+    dadosDepois: { versaoContrato: 'v2' },
+    ip: '127.0.0.1',
+    criadoEm: new Date().toISOString(),
+  },
+];
+
+export const MOCK_CONFIGURACOES: ConfiguracaoSistema[] = [
+  {
+    chave: 'RETATIVIDADE_DIAS_PROVA',
+    valor: '47',
+    descricao: 'Dias contados até a prova oficial',
+    categoria: 'geral',
+    atualizadoPor: 'adminti',
+    atualizadoEm: '2026-07-28T10:00:00Z',
+  },
+  {
+    chave: 'SENHA_MIN_CARACTERES',
+    valor: '6',
+    descricao: 'Exigência mínima de caracteres na senha',
+    categoria: 'seguranca',
+    atualizadoPor: 'superadmin',
+    atualizadoEm: '2026-07-30T00:00:00Z',
+  },
+  {
+    chave: 'BLOQUEIO_TENTATIVAS_MAX',
+    valor: '5',
+    descricao: 'Limite de tentativas incorretas antes do bloqueio de 15 minutos',
+    categoria: 'seguranca',
+    atualizadoPor: 'superadmin',
+    atualizadoEm: '2026-07-30T00:00:00Z',
+  },
+];
+
+export const MOCK_LEADS: Lead[] = [
+  {
+    id: 1,
+    nome: 'Carlos Eduardo',
+    email: 'carlos.eduardo@gmail.com',
+    telefone: '(48) 99887-6655',
+    origem: 'site_vendas',
+    status: 'novo',
+    criadoEm: '2026-07-29T18:40:00Z',
+    cursoInteresseId: 101,
+  },
+];
+
+export const MOCK_CAMPANHAS_COTA: CampanhaCota[] = [
+  {
+    id: 1,
+    nome: 'Maratona Reta Final SED-SC',
+    overrideProducoesMax: 10,
+    overrideDownloadsMax: 10,
+    dataInicio: '2026-08-01',
+    dataFim: '2026-08-10',
+    ativa: true,
+    cursoId: 101,
+  },
+];
+
+// Regras de Segurança Onda 2 (Validação de Backend sem UI)
+export function validarPoliticaSenha(senha: string): { valida: boolean; erro?: string } {
+  if (!senha || senha.length < 6) {
+    return { valida: false, erro: 'A senha deve conter no mínimo 6 caracteres.' };
+  }
+  const temLetraOuNumero = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/.test(senha);
+  if (!temLetraOuNumero) {
+    return { valida: false, erro: 'A senha deve conter caracteres válidos.' };
+  }
+  return { valida: true };
+}
+
+// Rastreador em memória para tentativas de login (Backend Onda 2)
+const loginAttemptTracker: Record<string, { tentativas: number; bloqueadoAte?: number }> = {};
+
+export function verificarTentativasLogin(usuario: string): { permitido: boolean; tempoRestanteMinutos?: number } {
+  const chave = usuario.toLowerCase();
+  const registro = loginAttemptTracker[chave];
+  const agora = Date.now();
+
+  if (registro && registro.bloqueadoAte && agora < registro.bloqueadoAte) {
+    const minutosRestantes = Math.ceil((registro.bloqueadoAte - agora) / 60000);
+    return { permitido: false, tempoRestanteMinutos: minutosRestantes };
+  }
+
+  return { permitido: true };
+}
+
+export function registrarTentativaLoginFalha(usuario: string): { bloqueado: boolean; tentativasRestantes: number } {
+  const chave = usuario.toLowerCase();
+  const agora = Date.now();
+  if (!loginAttemptTracker[chave]) {
+    loginAttemptTracker[chave] = { tentativas: 0 };
+  }
+
+  loginAttemptTracker[chave].tentativas += 1;
+  const tentativas = loginAttemptTracker[chave].tentativas;
+
+  if (tentativas >= 5) {
+    loginAttemptTracker[chave].bloqueadoAte = agora + 15 * 60 * 1000; // 15 minutos de bloqueio
+    // Registrar log de auditoria
+    MOCK_LOGS_AUDITORIA.push({
+      id: MOCK_LOGS_AUDITORIA.length + 1,
+      usuarioNome: usuario,
+      acao: 'BLOQUEIO_TENTATIVAS_EXCEDIDAS',
+      detalhes: `Usuário bloqueado por 15 minutos após 5 tentativas incorretas.`,
+      criadoEm: new Date().toISOString(),
+    });
+    return { bloqueado: true, tentativasRestantes: 0 };
+  }
+
+  return { bloqueado: false, tentativasRestantes: 5 - tentativas };
+}
+
+export function resetarTentativasLogin(usuario: string) {
+  delete loginAttemptTracker[usuario.toLowerCase()];
+}
 
 export const CURRENT_USER: User = TEST_USERS[2]; // Default to Cliente (jeanrsl)
 

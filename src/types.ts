@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'ti' | 'cliente';
+export type UserRole = 'super_admin' | 'admin' | 'ti' | 'cliente';
 
 export interface User {
   id: number;
@@ -13,6 +13,107 @@ export interface User {
   dataProva?: string; // YYYY-MM-DD
   vigenciaFim?: string;
   onboardingOk?: boolean;
+}
+
+// Onda 1: Novas Entidades do Contrato v2
+export interface Matricula {
+  id: number;
+  usuarioId: number;
+  usuarioNome: string;
+  cursoId: number;
+  cursoNome: string;
+  status: 'ativa' | 'cancelada' | 'expirada' | 'suspensa' | 'trial';
+  dataInicio: string; // ISO date YYYY-MM-DD
+  dataFim: string; // ISO date YYYY-MM-DD
+  origem: 'compra' | 'codigo_acesso' | 'manual';
+}
+
+export interface Pagamento {
+  id: number;
+  usuarioId: number;
+  usuarioNome: string;
+  planoId: string;
+  valor_centavos: number;
+  parcelas: number;
+  metodo: 'pix' | 'cartao' | 'boleto';
+  status: 'aprovado' | 'pendente' | 'recusado' | 'estornado' | 'chargeback';
+  gateway: 'mercadopago' | 'infinitpay' | 'manual';
+  transacaoId?: string;
+  criadoEm: string;
+}
+
+export interface CodigoAcesso {
+  id: number;
+  codigo: string;
+  tipo: 'trial' | 'extensao' | 'cortesia';
+  diasValidade: number;
+  usado: boolean;
+  usadoPorUsuarioId?: number;
+  usadoEm?: string;
+  criadoEm: string;
+  cursoId?: number;
+  criadoPor?: string;
+}
+
+export interface Ticket {
+  id: number;
+  usuarioId: number;
+  usuarioNome: string;
+  assunto: string;
+  mensagem: string;
+  status: 'aberto' | 'em_atendimento' | 'resolvido' | 'fechado';
+  prioridade: 'baixa' | 'media' | 'alta';
+  respostas?: {
+    autor: string;
+    mensagem: string;
+    criadoEm: string;
+  }[];
+  criadoEm: string;
+}
+
+export interface LogAuditoria {
+  id: number;
+  usuarioId?: number;
+  usuarioNome?: string;
+  papel?: UserRole;
+  acao: string; // ex: "LOGIN_SUCESSO", "BLOQUEIO_TENTATIVAS", "ALTERACAO_CONFIG"
+  detalhes?: string;
+  dadosAntes?: Record<string, any>;
+  dadosDepois?: Record<string, any>;
+  ip?: string;
+  criadoEm: string;
+}
+
+export interface ConfiguracaoSistema {
+  chave: string;
+  valor: string;
+  descricao?: string;
+  categoria: 'geral' | 'seguranca' | 'pagamentos' | 'email' | 'limites';
+  atualizadoPor?: string;
+  atualizadoEm: string;
+}
+
+export interface Lead {
+  id: number;
+  nome: string;
+  email: string;
+  telefone?: string;
+  origem: 'site_vendas' | 'popup' | 'download_material';
+  status: 'novo' | 'contatado' | 'convertido';
+  criadoEm: string;
+  cursoInteresseId?: number;
+  convertidoEmUsuarioId?: number;
+}
+
+export interface CampanhaCota {
+  id: number;
+  nome: string;
+  overrideProducoesMax?: number;
+  overrideDownloadsMax?: number;
+  dataInicio: string;
+  dataFim: string;
+  ativa: boolean;
+  cursoId?: number;
 }
 
 export interface CotasState {
@@ -171,6 +272,23 @@ export interface PlatformFeatureItem {
   iconName: string;
 }
 
+export interface TestimonialItem {
+  id: string;
+  name: string;
+  role: string;
+  text: string;
+  stars: number;
+}
+
+export interface BlockVisibility {
+  showHero?: boolean;
+  showCarousel?: boolean;
+  showPillars?: boolean;
+  showPlans?: boolean;
+  showTestimonials?: boolean;
+  showCategories?: boolean;
+}
+
 export interface SiteConfig {
   heroTitle: string;
   heroHighlight: string;
@@ -182,4 +300,6 @@ export interface SiteConfig {
   contactEmail: string;
   companyName: string;
   sourceCategories?: CategoriaFonte[];
+  testimonials?: TestimonialItem[];
+  blockVisibility?: BlockVisibility;
 }

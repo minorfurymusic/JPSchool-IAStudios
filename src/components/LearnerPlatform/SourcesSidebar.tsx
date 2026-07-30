@@ -70,8 +70,8 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
         );
       });
 
-      if (filteredItems.length > 0 || (searchTerm.trim() && cat.nome.toLowerCase().includes(searchTerm.toLowerCase()))) {
-        groups.push({ category: cat, items: filteredItems.length > 0 ? filteredItems : items });
+      if (!searchTerm.trim() || filteredItems.length > 0 || cat.nome.toLowerCase().includes(searchTerm.toLowerCase())) {
+        groups.push({ category: cat, items: filteredItems });
       }
     });
 
@@ -191,9 +191,14 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
                 {/* Accordion Submatérias/Items List */}
                 {!isCollapsed && (
                   <div className="p-2 space-y-1.5 bg-slate-50/40">
-                    {items.map((source) => (
-                      <div
-                        key={source.id}
+                    {items.length === 0 ? (
+                      <div className="py-3 px-3 text-center text-[11px] text-slate-400 font-medium italic bg-white rounded-xl border border-dashed border-slate-200">
+                        Nenhum material cadastrado nesta categoria ainda.
+                      </div>
+                    ) : (
+                      items.map((source) => (
+                        <div
+                          key={source.id}
                         onClick={() => onToggleSource(source.id)}
                         className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
                           source.selecionada
@@ -225,7 +230,8 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
                           </div>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 )}
               </div>

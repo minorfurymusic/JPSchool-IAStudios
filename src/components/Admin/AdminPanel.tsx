@@ -4,7 +4,6 @@ import {
   Layout,
   Image,
   CreditCard,
-  MousePointer,
   Save,
   RotateCcw,
   ArrowLeft,
@@ -12,10 +11,12 @@ import {
   Trash2,
   CheckCircle2,
   Eye,
+  EyeOff,
   SlidersHorizontal,
-  Sparkles,
+  MessageSquare,
+  Layers,
 } from 'lucide-react';
-import { SiteConfig, PlanItem, CarouselSlide, PlatformFeatureItem } from '../../types';
+import { SiteConfig, PlanItem, CarouselSlide, PlatformFeatureItem, TestimonialItem, BlockVisibility } from '../../types';
 
 interface AdminPanelProps {
   siteConfig: SiteConfig;
@@ -32,7 +33,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onExitAdmin,
   onPreviewSalesSite,
 }) => {
-  const [activeTab, setActiveTab] = useState<'texts' | 'carousel' | 'plans' | 'buttons' | 'categories'>('texts');
+  type AdminTab = 'texts' | 'carousel' | 'plans' | 'testimonials' | 'categories' | 'pillars' | 'visibility';
+  const [activeTab, setActiveTab] = useState<AdminTab>('texts');
   const [formData, setFormData] = useState<SiteConfig>(JSON.parse(JSON.stringify(siteConfig)));
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -41,12 +43,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newCatDesc, setNewCatDesc] = useState('');
   const [newCatColor, setNewCatColor] = useState('bg-blue-100 text-[#1877F2]');
 
+  // New Testimonial State
+  const [newTestName, setNewTestName] = useState('');
+  const [newTestRole, setNewTestRole] = useState('');
+  const [newTestText, setNewTestText] = useState('');
+  const [newTestStars, setNewTestStars] = useState(5);
+
+  // New Pillar/Feature State
+  const [newPillarTitle, setNewPillarTitle] = useState('');
+  const [newPillarDesc, setNewPillarDesc] = useState('');
+
   const handleSave = () => {
     onUpdateConfig(formData);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
+  const handleReset = () => {
+    if (confirm('Deseja realmente restaurar os textos e imagens para o padrão original do site?')) {
+      onResetDefault();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
+
+  // Block Visibility Toggles
+  const handleToggleBlock = (blockKey: keyof BlockVisibility) => {
+    setFormData((prev) => {
+      const currentVis = prev.blockVisibility || {
+        showHero: true,
+        showCarousel: true,
+        showPillars: true,
+        showPlans: true,
+        showTestimonials: true,
+        showCategories: true,
+      };
+      return {
+        ...prev,
+        blockVisibility: {
+          ...currentVis,
+          [blockKey]: !currentVis[blockKey],
+        },
+      };
+    });
+  };
+
+  // --- CATEGORIES HANDLERS (ITEM 1, 2, 3) ---
   const handleAddCategory = () => {
     if (!newCatName.trim()) {
       alert('Informe o nome da categoria.');
@@ -74,7 +116,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       alert('É necessário manter pelo menos 1 categoria de fontes.');
       return;
     }
-    if (confirm('Tem certeza que deseja remover esta categoria de fontes?')) {
+    if (confirm('Tem certeza que deseja remover esta categoria de fontes? Ela sumirá do painel do aluno.')) {
       setFormData((prev) => ({
         ...prev,
         sourceCategories: (prev.sourceCategories || []).filter((c) => c.id !== catId),
@@ -82,15 +124,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleReset = () => {
-    if (confirm('Deseja realmente restaurar os textos e imagens para o padrão original do site?')) {
-      onResetDefault();
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }
-  };
-
-  // Helper for adding slide
+  // --- CAROUSEL SLIDES HANDLERS (ITEM 7) ---
   const handleAddSlide = () => {
     const newSlide: CarouselSlide = {
       id: Date.now(),
@@ -105,7 +139,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }));
   };
 
-  // Helper for deleting slide
   const handleDeleteSlide = (id: number) => {
     if (formData.carouselSlides.length <= 1) {
       alert('O carrossel precisa conter pelo menos 1 slide.');
@@ -115,6 +148,109 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       ...prev,
       carouselSlides: prev.carouselSlides.filter((s) => s.id !== id),
     }));
+  };
+
+  // --- PLANS HANDLERS (ITEM 7) ---
+  const handleAddPlan = () => {
+    const newPlan: PlanItem = {
+      id: `plano-${Date.now()}`,
+      name: 'Novo Plano de Estudos',
+      price: '599,99',
+      installments: 'até 10x de R$ 59,99',
+      subtitle: 'Descrição personalizada da modalidade de acesso.',
+      features: [
+        'Acesso completo ao Tutor IA treinado em Leis Oficiais',
+        'Gerador de Plano de Estudos e Cronograma',
+        'Simulados ilimitados e Banco de Questões',
+      ],
+      ctaText: 'Garantir Acesso ao Novo Plano',
+    };
+    setFormData((prev) => ({
+      ...prev,
+      plans: [...prev.plans, newPlan],
+    }));
+  };
+
+  const handleDeletePlan = (planId: string) => {
+    if (formData.plans.length <= 1) {
+      alert('É necessário manter pelo menos 1 plano de vendas.');
+      return;
+    }
+    if (confirm('Deseja realmente remover este plano?')) {
+      setFormData((prev) => ({
+        ...prev,
+        plans: prev.plans.filter((p) => p.id !== planId),
+      }));
+    }
+  };
+
+  // --- TESTIMONIALS HANDLERS (ITEM 5 & ITEM 7) ---
+  const handleAddTestimonial = () => {
+    if (!newTestName.trim()) {
+      alert('Informe o nome do professor no depoimento.');
+      return;
+    }
+    const newTest: TestimonialItem = {
+      id: `test-${Date.now()}`,
+      name: newTestName.trim(),
+      role: newTestRole.trim() || 'Aprovado(a) em Concurso Público',
+      text: newTestText.trim() || 'Excelente plataforma de estudos! O tutor de IA me economizou meses de preparação.',
+      stars: newTestStars,
+    };
+    setFormData((prev) => ({
+      ...prev,
+      testimonials: [...(prev.testimonials || []), newTest],
+    }));
+    setNewTestName('');
+    setNewTestRole('');
+    setNewTestText('');
+  };
+
+  const handleDeleteTestimonial = (testId: string) => {
+    if (confirm('Deseja remover este depoimento?')) {
+      setFormData((prev) => ({
+        ...prev,
+        testimonials: (prev.testimonials || []).filter((t) => t.id !== testId),
+      }));
+    }
+  };
+
+  // --- PILLARS/FEATURES HANDLERS (ITEM 7) ---
+  const handleAddPillar = () => {
+    if (!newPillarTitle.trim()) {
+      alert('Informe o título da funcionalidade.');
+      return;
+    }
+    const newPillar: PlatformFeatureItem = {
+      id: `pillar-${Date.now()}`,
+      title: newPillarTitle.trim(),
+      description: newPillarDesc.trim() || 'Descrição dos benefícios para a rotina de estudos.',
+      iconName: 'Sparkles',
+    };
+    setFormData((prev) => ({
+      ...prev,
+      pillarsFeatures: [...(prev.pillarsFeatures || []), newPillar],
+    }));
+    setNewPillarTitle('');
+    setNewPillarDesc('');
+  };
+
+  const handleDeletePillar = (pillarId: string) => {
+    if (confirm('Deseja remover esta funcionalidade da lista?')) {
+      setFormData((prev) => ({
+        ...prev,
+        pillarsFeatures: (prev.pillarsFeatures || []).filter((p) => p.id !== pillarId),
+      }));
+    }
+  };
+
+  const currentVis = formData.blockVisibility || {
+    showHero: true,
+    showCarousel: true,
+    showPillars: true,
+    showPlans: true,
+    showTestimonials: true,
+    showCategories: true,
   };
 
   return (
@@ -130,12 +266,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-base tracking-tight text-white">Painel de Controle Admin / TI</span>
+                <span className="font-extrabold text-base tracking-tight text-white">Painel de Controle TI</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Layout & Textos Comerciais
+                  Gerenciador do Site & Plataforma
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">Gerenciador de Aparência do Site de Vendas JPSchool IA</p>
+              <p className="text-[10px] text-slate-400">Edição de Textos, Blocos, Depoimentos, Planos e Categorias</p>
             </div>
           </div>
 
@@ -176,7 +312,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="bg-emerald-500 text-white px-5 py-3.5 rounded-2xl shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in">
             <div className="flex items-center space-x-2">
               <CheckCircle2 className="w-5 h-5" />
-              <span>Alterações salvas com sucesso! O site de vendas foi atualizado em tempo real.</span>
+              <span>Alterações salvas com sucesso! As atualizações foram aplicadas em tempo real.</span>
             </div>
             <button onClick={() => setSaveSuccess(false)} className="text-white/80 hover:text-white">✕</button>
           </div>
@@ -205,7 +341,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
           >
             <Image className="w-4 h-4" />
-            <span>2. Carrossel de Imagens (carrossel-1)</span>
+            <span>2. Carrossel ({formData.carouselSlides.length})</span>
           </button>
 
           <button
@@ -217,19 +353,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
           >
             <CreditCard className="w-4 h-4" />
-            <span>3. Planos e Preços Exibidos</span>
+            <span>3. Planos e Preços ({formData.plans.length})</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('buttons')}
+            onClick={() => setActiveTab('testimonials')}
             className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
-              activeTab === 'buttons'
+              activeTab === 'testimonials'
                 ? 'bg-[#1877F2] text-white shadow-xs'
                 : 'hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
-            <MousePointer className="w-4 h-4" />
-            <span>4. Contato & Suporte</span>
+            <MessageSquare className="w-4 h-4" />
+            <span>4. Depoimentos ({(formData.testimonials || []).length})</span>
           </button>
 
           <button
@@ -241,7 +377,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span>5. Categorias de Materiais</span>
+            <span>5. Categorias ({(formData.sourceCategories || []).length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pillars')}
+            className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
+              activeTab === 'pillars'
+                ? 'bg-[#1877F2] text-white shadow-xs'
+                : 'hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>6. Recursos / Pilares ({(formData.pillarsFeatures || []).length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('visibility')}
+            className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
+              activeTab === 'visibility'
+                ? 'bg-[#1877F2] text-white shadow-xs'
+                : 'hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Eye className="w-4 h-4" />
+            <span>7. Visibilidade de Blocos</span>
           </button>
         </div>
 
@@ -278,14 +438,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Frase Subtítulo do Hero (Apresentação Principal)</label>
+                <label className="block font-bold text-slate-700 mb-1">Frase Subtítulo do Hero</label>
                 <textarea
                   rows={3}
                   value={formData.heroSubtitle}
                   onChange={(e) => setFormData({ ...formData, heroSubtitle: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">Conforme solicitado: Frase curta sem complicações tecnológicas.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
@@ -309,25 +468,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 </div>
               </div>
+
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-slate-800">Restaurar Configurações Padrão</p>
+                  <p className="text-slate-500">Volta todos os textos, imagens, depoimentos e planos para o padrão original.</p>
+                </div>
+
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center space-x-1.5"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Restaurar Padrão</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: CARROSSEL DE IMAGENS */}
+        {/* TAB 2: CARROSSEL DE IMAGENS (ITEM 7: Adicionar mais slides) */}
         {activeTab === 'carousel' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
             <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
                   <Image className="w-5 h-5 text-[#1877F2]" />
-                  <span>Gerenciar Slides do Carrossel (carrossel-1)</span>
+                  <span>Gerenciar Slides do Carrossel ({formData.carouselSlides.length} slides)</span>
                 </h2>
-                <p className="text-xs text-slate-500">Adicione ou troque imagens e textos do carrossel em destaque no Hero.</p>
+                <p className="text-xs text-slate-500">Adicione novos slides sem limite fixo ou edite os existentes.</p>
               </div>
 
               <button
                 onClick={handleAddSlide}
-                className="px-3.5 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
+                className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
               >
                 <Plus className="w-4 h-4" />
                 <span>Adicionar Novo Slide</span>
@@ -341,7 +515,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <span className="text-xs font-extrabold text-[#1877F2] uppercase">Slide #{idx + 1}</span>
                     <button
                       onClick={() => handleDeleteSlide(slide.id)}
-                      className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
                       title="Excluir slide"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -426,22 +600,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        {/* TAB 3: PLANOS E PREÇOS */}
+        {/* TAB 3: PLANOS E PREÇOS (ITEM 4 & ITEM 7: Adicionar/Remover Planos flexíveis) */}
         {activeTab === 'plans' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
-                <CreditCard className="w-5 h-5 text-[#1877F2]" />
-                <span>Gerenciar Produtos e Valores dos Planos</span>
-              </h2>
-              <p className="text-xs text-slate-500">Altere preços, parcelamentos e nomes dos produtos comercializados.</p>
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5 text-[#1877F2]" />
+                  <span>Gerenciar Produtos e Planos de Vendas ({formData.plans.length} planos)</span>
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Esta é a ÚNICA seção oficial de preços do site de vendas. Adicione novos planos ou altere valores.
+                </p>
+              </div>
+
+              <button
+                onClick={handleAddPlan}
+                className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adicionar Novo Plano</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {formData.plans.map((plan, planIdx) => (
-                <div key={plan.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                <div key={plan.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4 relative">
                   <div className="border-b border-slate-200 pb-2 flex justify-between items-center">
-                    <span className="font-extrabold text-[#1877F2] text-xs">Produto #{planIdx + 1}: {plan.name}</span>
+                    <span className="font-extrabold text-[#1877F2] text-xs">Plano #{planIdx + 1}: {plan.name}</span>
+                    <button
+                      onClick={() => handleDeletePlan(plan.id)}
+                      className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Excluir plano"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
 
                   <div className="space-y-3 text-xs">
@@ -496,7 +689,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">Descrição / Subtítulo</label>
+                      <label className="block font-bold text-slate-700 mb-1">Selo de Destaque (Opcional)</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Mais Recomendado"
+                        value={plan.popularBadge || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            plans: prev.plans.map((p) => (p.id === plan.id ? { ...p, popularBadge: val || undefined } : p)),
+                          }));
+                        }}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Descrição / Subtítulo do Plano</label>
                       <input
                         type="text"
                         value={plan.subtitle}
@@ -507,10 +717,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             plans: prev.plans.map((p) => (p.id === plan.id ? { ...p, subtitle: val } : p)),
                           }));
                         }}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                       />
                     </div>
-
                   </div>
                 </div>
               ))}
@@ -518,56 +727,164 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        {/* TAB 4: CONTATO & SUPORTE */}
-        {activeTab === 'buttons' && (
+        {/* TAB 4: DEPOIMENTOS (ITEM 5: Editor de Depoimentos & ITEM 7) */}
+        {activeTab === 'testimonials' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
-                <MousePointer className="w-5 h-5 text-[#1877F2]" />
-                <span>Textos de Botões e Contato de Vendas</span>
+                <MessageSquare className="w-5 h-5 text-[#1877F2]" />
+                <span>Editor de Depoimentos da Home</span>
               </h2>
-              <p className="text-xs text-slate-500">Configure rótulos de botões de chamada e atalhos.</p>
+              <p className="text-xs text-slate-500">
+                Altere, adicione ou remova os depoimentos reais exibidos na seção de prova social do site de vendas.
+              </p>
             </div>
 
-            <div className="space-y-4 max-w-2xl text-xs">
+            {/* Form to Add New Testimonial */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 text-xs">
+              <div className="flex items-center space-x-2 font-bold text-[#1877F2]">
+                <Plus className="w-4 h-4" />
+                <span>Adicionar Novo Depoimento Real</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nome do Professor</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Profa. Maria Silva"
+                    value={newTestName}
+                    onChange={(e) => setNewTestName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Cargo / Resultado de Aprovação</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Aprovada SED-SC 1º Lugar"
+                    value={newTestRole}
+                    onChange={(e) => setNewTestRole(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Avaliação em Estrelas</label>
+                  <select
+                    value={newTestStars}
+                    onChange={(e) => setNewTestStars(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value={5}>5 Estrelas (Excelente)</option>
+                    <option value={4}>4 Estrelas (Muito Bom)</option>
+                    <option value={3}>3 Estrelas (Regular)</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Texto do Botão Principal do Hero</label>
-                <input
-                  type="text"
-                  value={formData.ctaButtonText}
-                  onChange={(e) => setFormData({ ...formData, ctaButtonText: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                <label className="block font-bold text-slate-700 mb-1">Depoimento em Texto</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ex: O simulado inteligente me deu a confiança necessária para gabaritar a prova da FEPESE."
+                  value={newTestText}
+                  onChange={(e) => setNewTestText(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-800">Restaurar Configurações Padrão</p>
-                  <p className="text-slate-500">Volta todos os textos, imagens e planos para a versão inicial do sistema.</p>
-                </div>
+              <button
+                onClick={handleAddTestimonial}
+                className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Salvar Depoimento no Site</span>
+              </button>
+            </div>
 
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center space-x-1.5"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Restaurar Padrão</span>
-                </button>
+            {/* List of Existing Testimonials */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-xs text-slate-700">Depoimentos Cadastrados ({(formData.testimonials || []).length})</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(formData.testimonials || []).map((t, idx) => (
+                  <div key={t.id || idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 relative text-xs">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2 flex-1 pr-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={t.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                testimonials: (prev.testimonials || []).map((item) =>
+                                  item.id === t.id ? { ...item, name: val } : item
+                                ),
+                              }));
+                            }}
+                            className="font-extrabold text-slate-800 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={t.role}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                testimonials: (prev.testimonials || []).map((item) =>
+                                  item.id === t.id ? { ...item, role: val } : item
+                                ),
+                              }));
+                            }}
+                            className="text-[11px] text-emerald-700 font-bold bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+
+                        <textarea
+                          rows={2}
+                          value={t.text}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              testimonials: (prev.testimonials || []).map((item) =>
+                                item.id === t.id ? { ...item, text: val } : item
+                              ),
+                            }));
+                          }}
+                          className="text-xs text-slate-600 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteTestimonial(t.id)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                        title="Remover depoimento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 5: CATEGORIAS DE MATERIAIS */}
+        {/* TAB 5: CATEGORIAS DE MATERIAIS (ITEM 1: Sincronização ↔ Aluno, ITEM 2: Excluir, ITEM 3: Editar Nome/Badge) */}
         {activeTab === 'categories' && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
                 <SlidersHorizontal className="w-5 h-5 text-[#1877F2]" />
-                <span>Gerenciar Categorias dos Materiais de Estudo</span>
+                <span>Gerenciar Categorias dos Materiais de Estudo ({formData.sourceCategories?.length || 0})</span>
               </h2>
               <p className="text-xs text-slate-500">
-                Crie, edite e organize as categorias de agrupamento exibidas na barra lateral de estudos do aluno.
+                Qualquer categoria criada ou alterada aqui sincroniza automaticamente no painel lateral de estudos do aluno.
               </p>
             </div>
 
@@ -627,7 +944,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
 
-            {/* List of Existing Categories */}
+            {/* List of Existing Categories (ITEM 3: Edição Completa) */}
             <div className="space-y-3">
               <h3 className="font-bold text-xs text-slate-700">Categorias Ativas ({formData.sourceCategories?.length || 0})</h3>
               
@@ -635,8 +952,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 {(formData.sourceCategories || []).map((cat) => (
                   <div key={cat.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 relative text-xs">
                     <div className="flex justify-between items-start">
-                      <div className="space-y-1 flex-1 pr-2">
-                        <div className="flex items-center space-x-2">
+                      <div className="space-y-2 flex-1 pr-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Nome da Categoria</label>
                           <input
                             type="text"
                             value={cat.nome}
@@ -649,38 +967,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 ),
                               }));
                             }}
-                            className="font-extrabold text-slate-800 bg-white px-2 py-1 border border-slate-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="font-extrabold text-slate-800 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
                           />
                         </div>
 
-                        <input
-                          type="text"
-                          value={cat.descricao || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              sourceCategories: (prev.sourceCategories || []).map((c) =>
-                                c.id === cat.id ? { ...c, descricao: val } : c
-                              ),
-                            }));
-                          }}
-                          placeholder="Descrição da categoria..."
-                          className="text-[11px] text-slate-500 bg-white px-2 py-1 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Descrição</label>
+                          <input
+                            type="text"
+                            value={cat.descricao || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                sourceCategories: (prev.sourceCategories || []).map((c) =>
+                                  c.id === cat.id ? { ...c, descricao: val } : c
+                                ),
+                              }));
+                            }}
+                            placeholder="Descrição da categoria..."
+                            className="text-[11px] text-slate-600 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Estilo do Badge</label>
+                          <select
+                            value={cat.corBadge || 'bg-blue-100 text-[#1877F2]'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                sourceCategories: (prev.sourceCategories || []).map((c) =>
+                                  c.id === cat.id ? { ...c, corBadge: val } : c
+                                ),
+                              }));
+                            }}
+                            className="text-[11px] font-medium bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            <option value="bg-blue-100 text-[#1877F2]">Azul (Normativa)</option>
+                            <option value="bg-emerald-100 text-emerald-800">Verde (Legislação SC)</option>
+                            <option value="bg-amber-100 text-amber-800">Amarelo (Educacional)</option>
+                            <option value="bg-purple-100 text-purple-800">Roxo (Didática)</option>
+                            <option value="bg-rose-100 text-rose-800">Rosa (Especial)</option>
+                            <option value="bg-slate-200 text-slate-800">Cinza (Provas/Geral)</option>
+                          </select>
+                        </div>
                       </div>
 
                       <button
                         onClick={() => handleDeleteCategory(cat.id)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0 ml-1"
                         title="Remover categoria"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="flex items-center space-x-2 text-[11px]">
-                      <span className="font-medium text-slate-500">Visual do Badge:</span>
+                    <div className="flex items-center space-x-2 text-[11px] pt-1 border-t border-slate-200/60">
+                      <span className="font-medium text-slate-500">Prévia no Aluno:</span>
                       <span className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] ${cat.corBadge || 'bg-slate-200 text-slate-800'}`}>
                         {cat.nome}
                       </span>
@@ -688,6 +1033,268 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: PILARES / RECURSOS (ITEM 7: Flexibilidade em todas as abas) */}
+        {activeTab === 'pillars' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
+                  <Layers className="w-5 h-5 text-[#1877F2]" />
+                  <span>Gerenciar Funcionalidades e Pilares ({formData.pillarsFeatures.length} itens)</span>
+                </h2>
+                <p className="text-xs text-slate-500">Adicione ou edite os cartões de recursos exibidos na home.</p>
+              </div>
+            </div>
+
+            {/* Form to Add New Pillar */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4 text-xs">
+              <div className="flex items-center space-x-2 font-bold text-[#1877F2]">
+                <Plus className="w-4 h-4" />
+                <span>Adicionar Nova Funcionalidade em Destaque</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Título do Recurso</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Simulador com Inteligência Emocional"
+                    value={newPillarTitle}
+                    onChange={(e) => setNewPillarTitle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Descrição Explicativa</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Feedback ao vivo sobre tempo de resposta e pegadinhas."
+                    value={newPillarDesc}
+                    onChange={(e) => setNewPillarDesc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleAddPillar}
+                className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adicionar ao Site</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {formData.pillarsFeatures.map((pillar) => (
+                <div key={pillar.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 relative text-xs">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2 flex-1 pr-2">
+                      <input
+                        type="text"
+                        value={pillar.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            pillarsFeatures: prev.pillarsFeatures.map((p) =>
+                              p.id === pillar.id ? { ...p, title: val } : p
+                            ),
+                          }));
+                        }}
+                        className="font-extrabold text-slate-800 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+
+                      <textarea
+                        rows={2}
+                        value={pillar.description}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            pillarsFeatures: prev.pillarsFeatures.map((p) =>
+                              p.id === pillar.id ? { ...p, description: val } : p
+                            ),
+                          }));
+                        }}
+                        className="text-xs text-slate-600 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => handleDeletePillar(pillar.id)}
+                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                      title="Remover recurso"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: VISIBILIDADE DOS BLOCOS DA HOME (ITEM 6: Toggles de visibilidade por bloco) */}
+        {activeTab === 'visibility' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-lg font-extrabold text-[#2D3748] flex items-center space-x-2">
+                <Eye className="w-5 h-5 text-[#1877F2]" />
+                <span>Controle de Visibilidade dos Blocos da Home</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Ligue ou desligue qualquer seção do site público instantaneamente sem precisar apagar os conteúdos cadastrados.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+              
+              {/* Hero Header Toggle */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-slate-800">Bloco Hero (Topo)</h4>
+                  <p className="text-[11px] text-slate-500">Título principal e destaques</p>
+                </div>
+                <button
+                  onClick={() => handleToggleBlock('showHero')}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center space-x-1.5 ${
+                    currentVis.showHero !== false
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {currentVis.showHero !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visível</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Carousel Toggle */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-slate-800">Carrossel de Slides</h4>
+                  <p className="text-[11px] text-slate-500">Slides de imagens do Hero</p>
+                </div>
+                <button
+                  onClick={() => handleToggleBlock('showCarousel')}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center space-x-1.5 ${
+                    currentVis.showCarousel !== false
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {currentVis.showCarousel !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visível</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Pillars/Features Toggle */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-slate-800">Pilares / Funcionalidades</h4>
+                  <p className="text-[11px] text-slate-500">Grid de recursos principais</p>
+                </div>
+                <button
+                  onClick={() => handleToggleBlock('showPillars')}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center space-x-1.5 ${
+                    currentVis.showPillars !== false
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {currentVis.showPillars !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visível</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Plans/Pricing Toggle */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-slate-800">Planos e Preços</h4>
+                  <p className="text-[11px] text-slate-500">Cards de investimento e vendas</p>
+                </div>
+                <button
+                  onClick={() => handleToggleBlock('showPlans')}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center space-x-1.5 ${
+                    currentVis.showPlans !== false
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {currentVis.showPlans !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visível</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Testimonials Toggle */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-slate-800">Seção de Depoimentos</h4>
+                  <p className="text-[11px] text-slate-500">Prova social de professores</p>
+                </div>
+                <button
+                  onClick={() => handleToggleBlock('showTestimonials')}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center space-x-1.5 ${
+                    currentVis.showTestimonials !== false
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {currentVis.showTestimonials !== false ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visível</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
             </div>
           </div>
         )}

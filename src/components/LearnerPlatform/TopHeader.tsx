@@ -106,15 +106,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               </div>
             </div>
 
-            {/* Exam Countdown Badge */}
-            <div className="bg-blue-50/90 border border-blue-200/80 text-blue-900 rounded-2xl px-3 py-1.5 flex items-center space-x-2 text-xs font-bold">
-              <Calendar className="w-3.5 h-3.5 text-[#1877F2]" />
-              <div>
-                <span className="block text-[9px] text-blue-700 font-medium uppercase tracking-wider">Prova: 15/SET</span>
-                <span className="text-[11px] font-extrabold">{daysRemaining} dias restantes</span>
-              </div>
-            </div>
-
           </div>
 
         </div>

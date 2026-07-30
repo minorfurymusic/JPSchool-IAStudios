@@ -152,14 +152,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {user.nome ? user.nome.charAt(0) : 'J'}
                 </div>
                 <div>
-                  <div className="flex items-center space-x-1">
-                    <h1 className="text-xs font-extrabold text-[#2D3748] leading-tight">
-                      {user.nome}
-                    </h1>
-                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-blue-100 text-[#1877F2]">
-                      Cliente
-                    </span>
-                  </div>
+                  <h1 className="text-xs font-extrabold text-[#2D3748] leading-tight">
+                    {user.nome}
+                  </h1>
                   <p className="text-[10px] font-semibold text-slate-500 leading-tight">
                     {user.turmaNome || 'Plataforma de Estudos'}
                   </p>
@@ -207,15 +202,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
               )}
-
-              {/* Prova Countdown */}
-              <div className="bg-blue-50/90 border border-blue-200/80 text-blue-900 rounded-xl px-2.5 py-1 flex items-center space-x-1.5 text-[11px] font-bold shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-[#1877F2]" />
-                <div>
-                  <span className="block text-[8px] text-blue-700 font-medium uppercase tracking-wider">PROVA: 15/SET</span>
-                  <span className="text-[10px] font-extrabold">{daysRemaining} dias restantes</span>
-                </div>
-              </div>
 
             </div>
           )}
