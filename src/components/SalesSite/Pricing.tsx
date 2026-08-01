@@ -62,7 +62,7 @@ export const Pricing: React.FC<PricingProps> = ({
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     alert(
-      `Inscrição confirmada com sucesso no plano ${activePlan?.name || 'JPSchool IA'} para ${
+      `Inscrição confirmada com sucesso no plano ${activePlan?.name || 'JPSchool'} para ${
         enrollName || 'Prof. Aluno'
       }!\nSeu acesso à Plataforma do Aluno foi liberado.`
     );

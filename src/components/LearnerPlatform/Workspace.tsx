@@ -149,7 +149,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
     // Trigger fake browser download file
     const element = document.createElement('a');
-    const file = new Blob([lastResultado?.conteudo || 'Material de Estudo JPSchool IA'], { type: 'text/plain' });
+    const file = new Blob([lastResultado?.conteudo || 'Material de Estudo JPSchool'], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = `JPSchool_${activeFeature.id}_${Date.now()}.txt`;
     document.body.appendChild(element);

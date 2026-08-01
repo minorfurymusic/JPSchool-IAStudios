@@ -1,5 +1,5 @@
 {
-  "name": "JPSchool IA",
+  "name": "JPSchool",
   "description": "Plataforma de preparação com Tutor de IA e RAG para concursos públicos de professores (SED-SC e Prefeituras)",
   "requestFramePermissions": ["microphone", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

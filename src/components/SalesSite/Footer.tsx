@@ -9,7 +9,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({
-  companyName = 'JPSchool IA',
+  companyName = 'JPSchool',
   contactEmail = 'contato@jpschool.ia',
   onOpenAdmin,
 }) => {

@@ -103,7 +103,7 @@ export const Pillars: React.FC<PillarsProps> = ({ features }) => {
             Recursos e Funcionalidades
           </span>
           <h2 className="text-3xl font-extrabold text-[#2D3748] tracking-tight">
-            Funcionalidades do Ecossistema JPSchool IA
+            Funcionalidades do Ecossistema JPSchool
           </h2>
           <p className="text-slate-600 text-sm">
             Ferramentas inteligentes desenvolvidas para otimizar cada etapa da sua preparação.

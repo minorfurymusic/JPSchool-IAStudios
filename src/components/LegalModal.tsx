@@ -11,7 +11,7 @@ interface LegalModalProps {
 export const LegalModal: React.FC<LegalModalProps> = ({
   type,
   onClose,
-  companyName = 'JPSchool IA',
+  companyName = 'JPSchool',
   contactEmail = 'contato@jpschool.ia',
 }) => {
   if (!type) return null;

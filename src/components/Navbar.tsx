@@ -41,7 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLoginWithUser,
   cartCount = 1,
   onOpenCart,
-  companyName = 'JPSchool IA',
+  companyName = 'JPSchool',
   user,
   cotas,
   isRetaFinal = true,

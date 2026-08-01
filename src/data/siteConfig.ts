@@ -6,7 +6,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   heroSubtitle:
     'O ecossistema definitivo para o concurso e processos seletivos. Estude com editais, leis e provas oficiais integradas em uma interface simples, sem complicações tecnológicas.',
   ctaButtonText: 'Acessar Plataforma do Aluno',
-  companyName: 'JPSchool IA',
+  companyName: 'JPSchool',
   contactEmail: 'contato@jpschool.ia',
   carouselSlides: [
     {

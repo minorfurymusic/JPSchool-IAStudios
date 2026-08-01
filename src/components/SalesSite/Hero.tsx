@@ -137,7 +137,7 @@ export const Hero: React.FC<HeroProps> = ({
                 <div className="w-3 h-3 rounded-full bg-amber-400" />
                 <div className="w-3 h-3 rounded-full bg-emerald-400" />
                 <span className="text-xs font-bold text-slate-600 ml-2">
-                  JPSchool IA • Visualização do Sistema
+                  JPSchool • Visualização do Sistema
                 </span>
               </div>
 

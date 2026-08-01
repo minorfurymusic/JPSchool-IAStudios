@@ -66,7 +66,7 @@ function resetQuotaIfNewDay() {
 
 // API Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'JPSchool IA Backend Engine' });
+  res.json({ status: 'ok', service: 'JPSchool Backend Engine' });
 });
 
 app.get('/api/cotas', (req, res) => {
@@ -126,7 +126,7 @@ app.post('/api/estudio/executar', async (req, res) => {
 
     const userBanca = selectedSources[0]?.banca || 'FEPESE / ACAFE';
     const globalSystemPrompt = `
-Você é o Tutor JPSchool AI, especialista em concursos públicos de professores em Santa Catarina (SED-SC e Prefeituras).
+Você é o Tutor JPSchool, especialista em concursos públicos de professores em Santa Catarina (SED-SC e Prefeituras).
 
 REGRAS INVIOLÁVEIS DE CITAÇÃO E TRANSMISSÃO:
 1. Use PRIORITARIAMENTE os TRECHOS DA BIBLIOTECA OFICIAL fornecidos:
@@ -258,7 +258,7 @@ Distribuímos sua rotina em blocos de 45 minutos com foco na banca FEPESE/ACAFE.
    A banca gosta de trocar o termo "Conselho Tutelar" por "Direção Regional" e alterar a duração do estágio probatório para 2 anos. Fique atento!${notaExterna}`;
 
     case 'tirar_duvida':
-      return `💬 **Resposta do Tutor JPSchool AI**
+      return `💬 **Resposta do Tutor JPSchool**
 
 📗 [Fonte oficial: Edital SED-SC e LDB 9.394/96]
 Olá, Professor(a)! Analisando sua dúvida sobre **"${prompt || 'Processo Seletivo ACT'}"**:
@@ -470,7 +470,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`JPSchool IA Full-Stack Server running on http://0.0.0.0:${PORT}`);
+    console.log(`JPSchool Full-Stack Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
