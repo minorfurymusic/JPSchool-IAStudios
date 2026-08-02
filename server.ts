@@ -146,7 +146,7 @@ MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
       try {
         const fullPrompt = `${globalSystemPrompt}\n\nFUNCIONALIDADE SOLICITADA: ${featureId}\nINSTRUÇÕES / PERGUNTA DO ALUNO:\n${userPrompt || 'Executar conforme o padrão da funcionalidade'}`;
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-2.5-flash',
           contents: fullPrompt,
         });
         resultText = response.text || '';
@@ -372,6 +372,26 @@ app.get('/api/matriculas', requireAuth(['super_admin', 'admin', 'ti']), (req, re
   res.json({ matriculas: MOCK_MATRICULAS });
 });
 
+app.post('/api/matriculas/status', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  const { id, status } = req.body;
+  const matricula = MOCK_MATRICULAS.find(m => m.id === id);
+  if (matricula) {
+    const oldStatus = matricula.status;
+    matricula.status = status;
+    MOCK_LOGS_AUDITORIA.push({
+      id: MOCK_LOGS_AUDITORIA.length + 1,
+      acao: 'ALTERACAO_MATRICULA_STATUS',
+      detalhes: `Status da matrícula ${id} alterado de ${oldStatus} para ${status}`,
+      dadosAntes: { status: oldStatus },
+      dadosDepois: { status },
+      criadoEm: new Date().toISOString(),
+    });
+    res.json({ success: true, matricula });
+  } else {
+    res.status(404).json({ error: 'Matrícula não encontrada' });
+  }
+});
+
 app.get('/api/pagamentos', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
   res.json({ pagamentos: MOCK_PAGAMENTOS });
 });
@@ -390,6 +410,28 @@ app.get('/api/logs-auditoria', requireAuth(['super_admin', 'admin', 'ti']), (req
 
 app.get('/api/configuracoes', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
   res.json({ configuracoes: MOCK_CONFIGURACOES });
+});
+
+app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  const { chave, valor } = req.body;
+  const config = MOCK_CONFIGURACOES.find(c => c.chave === chave);
+  if (config) {
+    const oldVal = config.valor;
+    config.valor = valor;
+    config.atualizadoEm = new Date().toISOString();
+    config.atualizadoPor = req.headers['x-user-role'] as string || 'admin';
+    MOCK_LOGS_AUDITORIA.push({
+      id: MOCK_LOGS_AUDITORIA.length + 1,
+      acao: 'ALTERACAO_CONFIGURACAO',
+      detalhes: `Configuração ${chave} alterada de ${oldVal} para ${valor}`,
+      dadosAntes: { valor: oldVal },
+      dadosDepois: { valor },
+      criadoEm: new Date().toISOString(),
+    });
+    res.json({ success: true, config });
+  } else {
+    res.status(404).json({ error: 'Configuração não encontrada' });
+  }
 });
 
 app.get('/api/leads', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {

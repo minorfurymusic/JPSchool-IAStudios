@@ -1,0 +1,69 @@
+Relatório de Correção - JPSchool AI Studios
+Autor da Correção Planejada: Antigravity (AI Coding Assistant)
+Data de Planejamento: 01 de Agosto de 2026
+
+=========================================
+DETALHAMENTO DO ESCOPO DE DADOS OPERACIONAIS (ONDA 1)
+=========================================
+
+1. O que Pagamentos abrange?
+   - Registro de transações financeiras de faturamento de compras dos planos de estudo. Cada registro abrange:
+     - ID do pagamento e associação com ID/Nome do usuário (Aluno).
+     - Nome do plano selecionado.
+     - Valor do plano em centavos (ex: 49700 para R$ 497,00).
+     - Quantidade de parcelas da transação.
+     - Método de pagamento utilizado (pix, cartao, boleto).
+     - Gateway de pagamento intermediário (mercadopago, infinitpay, manual).
+     - ID da transação no gateway e timestamp de criação.
+     - Status da transação (aprovado, pendente, recusado, estornado, chargeback).
+
+2. Quais funções teremos em Matrículas?
+   - Listagem geral e busca de matrículas por nome do aluno ou nome do curso.
+   - Filtro rápido por status da matrícula.
+   - Indicação de origem da matrícula (compra, codigo_acesso, manual).
+   - AÇÕES DE GESTÃO DO STATUS: O administrador poderá, de forma interativa, mudar o status de uma matrícula diretamente na tabela, escolhendo entre:
+     * Ativa
+     * Cancelada
+     * Expirada
+     * Suspensa
+     * Trial
+   - Disparo correspondente de logs de auditoria automáticos sobre as alterações de status efetuadas.
+
+3. O que terá em Configurações do Sistema?
+   - Listagem de chaves e parâmetros operacionais gerais e de segurança que regem o comportamento da plataforma:
+     - RETATIVIDADE_DIAS_PROVA (prazos e regressivas até o concurso).
+     - SENHA_MIN_CARACTERES (regras de complexidade de senha).
+     - BLOQUEIO_TENTATIVAS_MAX (limite de erros no login antes do bloqueio).
+   - Informações de descrição descritiva da chave, categoria (geral, seguranca, limites), autor da última atualização e data da alteração.
+   - AÇÃO DE EDIÇÃO: O administrador poderá clicar para editar o valor da chave diretamente na listagem do painel para refletir novas regras operacionais instantaneamente.
+
+=========================================
+O QUE PRECISA SER CORRIGIDO/IMPLEMENTADO:
+=========================================
+
+1. Estruturação do Painel do Administrador (Onda 1):
+   - Integrar tabelas operacionais da Onda 1 no AdminBackstage:
+     - Matrículas (/api/matriculas)
+     - Pagamentos (/api/pagamentos)
+     - Códigos de Acesso (/api/codigos-acesso)
+     - Tickets de Suporte (/api/tickets)
+     - Logs de Auditoria (/api/logs-auditoria)
+     - Configurações do Sistema (/api/configuracoes)
+     - Leads (/api/leads)
+     - Campanhas de Cota (/api/campanhas-cota)
+   - Exibir tabelas interativas e de fácil navegação para essas entidades.
+   - Implementar os fluxos de edição de valor de Configuração e alteração de status de Matrícula.
+
+2. Integração das Funções de TI no Backstage Admin:
+   - Embutir o Editor do Site (componente AdminPanel) em uma guia separada e dedicada dentro do AdminBackstage.
+   - Permitir ao administrador configurar títulos, carrossel, planos, depoimentos, categorias e pilares sem sair do Backstage.
+
+3. Correções de Usabilidade e Bugs Críticos:
+   - Adicionar o botão "Voltar à Plataforma" no cabeçalho do AdminBackstage (onGoToPlatform).
+   - Corrigir o bug de indexação que define o usuário padrão como TEST_USERS[2] (adminti) em vez de TEST_USERS[3] (jeanrsl).
+   - Corrigir o redirecionamento incorreto no checkout do carrinho de compras.
+   - Corrigir a montagem do prompt central com imagens/vídeos que sofria curto-circuito (||).
+   - Adicionar um botão ou mecanismo para abrir a gaveta de anotações (Notes Drawer) na Área do Aluno.
+   - Corrigir o travamento de troca de cards nos Flashcards.
+   - Corrigir os bullet points estáticos na apresentação de Slides.
+   - Ajustar o modelo de IA gemini-3.6-flash inválido para gemini-2.5-flash no backend.

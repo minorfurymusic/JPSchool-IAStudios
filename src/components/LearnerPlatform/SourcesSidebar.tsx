@@ -110,7 +110,7 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
   };
 
   return (
-    <aside className="bg-white border-r border-slate-200 w-full lg:w-80 shrink-0 p-4 space-y-3.5 font-sans flex flex-col max-h-screen lg:max-h-none overflow-y-auto">
+    <aside className="bg-white border-r border-slate-200 w-full lg:w-80 shrink-0 p-4 space-y-3.5 font-sans flex flex-col lg:h-[calc(100vh-60px)] lg:max-h-none overflow-hidden">
       
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -140,7 +140,7 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
       </div>
 
       {/* VERTICAL ACCORDION LIST (MATÉRIA → SUBMATÉRIAS/CONTEÚDOS) */}
-      <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1 flex-1">
+      <div className="space-y-2 overflow-y-auto pr-1 flex-1">
         {groupedCategories.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             Nenhum material encontrado com o termo "{searchTerm}".

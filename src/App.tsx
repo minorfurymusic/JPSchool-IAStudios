@@ -30,7 +30,7 @@ import { fetchCotas } from './services/api';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>('platform');
-  const [currentUser, setCurrentUser] = useState<User>(TEST_USERS[2]); // Default to Cliente (jeanrsl)
+  const [currentUser, setCurrentUser] = useState<User>(TEST_USERS[3]); // Default to Cliente (jeanrsl)
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [isRetaFinal, setIsRetaFinal] = useState(true);
   const [selectedTurmaName, setSelectedTurmaName] = useState('SED ACT 2026');
@@ -145,6 +145,7 @@ export function App() {
           user={currentUser}
           cotas={cotas}
           isRetaFinal={isRetaFinal}
+          onOpenNotes={() => setIsNotesOpen(true)}
         />
       )}
 
@@ -258,6 +259,9 @@ export function App() {
           user={currentUser}
           onLogout={handleLogout}
           onGoToPlatform={() => setCurrentView('platform')}
+          siteConfig={siteConfig}
+          onUpdateConfig={handleUpdateSiteConfig}
+          onResetDefault={handleResetSiteConfig}
         />
       )}
 
@@ -280,7 +284,7 @@ export function App() {
         onSelectPlan={(plan) => setCartPlan(plan)}
         allPlans={siteConfig.plans}
         onCheckout={() => {
-          handleLoginWithUser(TEST_USERS[2]); // jeanrsl
+          handleLoginWithUser(TEST_USERS[3]); // jeanrsl
           setCurrentView('platform');
         }}
       />

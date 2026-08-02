@@ -261,7 +261,7 @@ export function resetarTentativasLogin(usuario: string) {
   delete loginAttemptTracker[usuario.toLowerCase()];
 }
 
-export const CURRENT_USER: User = TEST_USERS[2]; // Default to Cliente (jeanrsl)
+export const CURRENT_USER: User = TEST_USERS[3]; // Default to Cliente (jeanrsl)
 
 export const INITIAL_COTAS: CotasState = {
   producoesUsadas: 0,

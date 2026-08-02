@@ -38,6 +38,60 @@ interface WorkspaceProps {
   allQuestions: Questao[];
 }
 
+const mockFlashcards = [
+  {
+    frente: 'Qual é a duração exata do Estágio Probatório do professor em SC segundo a Lei Complementar nº 688/SC?',
+    verso: '3 anos (36 meses) com avaliação especial de desempenho realizada por comissão nomeada. [Fonte oficial: LC 688/SC]',
+  },
+  {
+    frente: 'A quem a escola deve notificar em caso de faltas injustificadas repetidas (ECA)?',
+    verso: 'Ao Conselho Tutelar da respectiva localidade (Art. 56 ECA). [Fonte oficial: ECA Lei 8.069/90]',
+  },
+  {
+    frente: 'O que caracteriza a Educação Integral no Currículo Base de Santa Catarina?',
+    verso: 'O desenvolvimento multidimensional pleno do sujeito (cognitivo, físico, afetivo, social e cultural). [Fonte oficial: Currículo Base SC]',
+  }
+];
+
+const mockSlides = [
+  {
+    titulo: '1. LDB 9.394/96 - Artigo 13 (Deveres Docentes)',
+    bullets: [
+      'Participação obrigatória na elaboração da proposta pedagógica da escola.',
+      'Zelo contínuo pelo aprendizado e frequência dos educandos.',
+      'Colaboração com as atividades de articulação da escola com as famílias.'
+    ],
+    notaOrador: 'Lembrar a turma de que a banca FEPESE costuma trocar "famílias" por "associações de bairro".'
+  },
+  {
+    titulo: '2. Lei Complementar 688/SC - Carreira e Prazos',
+    bullets: [
+      'Duração do Estágio Probatório de 3 anos (36 meses).',
+      'Avaliação especial de desempenho realizada por comissão nomeada.',
+      'Estabilidade assegurada somente após aprovação na comissão.'
+    ],
+    notaOrador: 'Foco na FEPESE: eles adoram dizer que a estabilidade é imediata ou que o estágio dura 2 anos.'
+  },
+  {
+    titulo: '3. Currículo Base SC - Educação Integral',
+    bullets: [
+      'Educação voltada ao sujeito multidimensional (cognitivo, físico, afetivo).',
+      'Não significa mero aumento de carga horária para tempo integral.',
+      'Envolvimento da comunidade e territórios educativos.'
+    ],
+    notaOrador: 'Destaque que a ACAFE cobra a integralidade como princípio formativo e pedagógico.'
+  },
+  {
+    titulo: '4. Revisão em 3 Pontos para a FEPESE',
+    bullets: [
+      'Legislação de SC: LC 688/SC tem prazo fixo de 36 meses.',
+      'LDB Art. 13: Docente elabora e cumpre plano de trabalho.',
+      'ECA Art. 56: Notificação obrigatória ao Conselho Tutelar.'
+    ],
+    notaOrador: 'Revisar esses 3 artigos na véspera. São os de maior incidência no Raio-X!'
+  }
+];
+
 export const Workspace: React.FC<WorkspaceProps> = ({
   activeFeature,
   selectedSources,
@@ -88,7 +142,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       setIsLoading(true);
       setErrorMsg(null);
 
-      const promptToUse = userPrompt || (uploadedImageName ? `[Análise da Imagem Anexada: ${uploadedImageName}] ${userPrompt}` : '') || (videoUrlInput ? `[URL da Aula: ${videoUrlInput}]` : '');
+      let promptToUse = userPrompt || '';
+      if (uploadedImageName) {
+        promptToUse = `[Análise da Imagem Anexada: ${uploadedImageName}] ${promptToUse}`;
+      }
+      if (videoUrlInput) {
+        promptToUse = `[URL da Aula: ${videoUrlInput}] ${promptToUse}`;
+      }
 
       const resultado = await executeEstudioFeature({
         featureId: activeFeature.id,
@@ -502,7 +562,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
         {activeFeature.id === 'flashcards' && (
           <div className="max-w-md mx-auto space-y-4 text-center">
             <div className="text-xs text-slate-500 font-semibold">
-              Cartão 1 de 3 • Clique no cartão para virar e conferir a resposta
+              Cartão {cardIndex + 1} de {mockFlashcards.length} • Clique no cartão para virar e conferir a resposta
             </div>
 
             {/* 3D Flip Card Effect */}
@@ -516,8 +576,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
               <p className="text-sm font-bold text-[#2D3748] px-4 leading-relaxed">
                 {isFlipped
-                  ? '3 anos (36 meses) com avaliação especial de desempenho realizada por comissão nomeada. [Fonte oficial: LC 688/SC]'
-                  : 'Qual é a duração exata do Estágio Probatório do professor em SC segundo a Lei Complementar nº 688/SC?'}
+                  ? mockFlashcards[cardIndex].verso
+                  : mockFlashcards[cardIndex].frente}
               </p>
 
               <span className="text-[10px] text-slate-400 italic">
@@ -527,13 +587,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
             <div className="flex items-center justify-center space-x-3 pt-2">
               <button
-                onClick={() => setIsFlipped(false)}
+                onClick={() => {
+                  setIsFlipped(false);
+                  setTimeout(() => {
+                    setCardIndex((prev) => (prev + 1) % mockFlashcards.length);
+                  }, 150);
+                }}
                 className="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-bold rounded-xl"
               >
                 Preciso Revisar
               </button>
               <button
-                onClick={() => setIsFlipped(false)}
+                onClick={() => {
+                  setIsFlipped(false);
+                  setTimeout(() => {
+                    setCardIndex((prev) => (prev + 1) % mockFlashcards.length);
+                  }, 150);
+                }}
                 className="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold rounded-xl"
               >
                 Já Memorizei
@@ -599,7 +669,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           <div className="space-y-4 max-w-2xl mx-auto">
             <div className="bg-slate-900 rounded-3xl p-8 text-white min-h-[280px] flex flex-col justify-between border border-slate-800 shadow-xl relative">
               <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>Slide {currentSlideIndex + 1} de 4</span>
+                <span>Slide {currentSlideIndex + 1} de {mockSlides.length}</span>
                 <span className="text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-md">
                   📗 [Fonte Oficial: SED-SC]
                 </span>
@@ -607,28 +677,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
               <div className="space-y-3 my-4">
                 <h3 className="text-lg font-extrabold text-blue-400">
-                  {currentSlideIndex === 0
-                    ? '1. LDB 9.394/96 - Artigo 13 (Deveres Docentes)'
-                    : currentSlideIndex === 1
-                    ? '2. Lei Complementar 688/SC - Carreira e Prazos'
-                    : currentSlideIndex === 2
-                    ? '3. Currículo Base SC - Educação Integral'
-                    : '4. Revisão em 3 Pontos para a FEPESE'}
+                  {mockSlides[currentSlideIndex].titulo}
                 </h3>
                 <ul className="space-y-2 text-xs text-slate-200">
-                  <li className="flex items-center space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                    <span>Participação obrigatória na elaboração da proposta pedagógica da escola.</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                    <span>Zelo contínuo pelo aprendizado e frequência dos educandos.</span>
-                  </li>
+                  {mockSlides[currentSlideIndex].bullets.map((bullet, bIdx) => (
+                    <li key={bIdx} className="flex items-center space-x-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
 
               <div className="text-[11px] text-slate-400 italic bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
-                <strong>Nota do Orador:</strong> Lembrar a turma de que a banca FEPESE costuma trocar "Conselho Tutelar" por "Direção Geral".
+                <strong>Nota do Orador:</strong> {mockSlides[currentSlideIndex].notaOrador}
               </div>
             </div>
 
@@ -643,8 +705,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               </button>
 
               <button
-                onClick={() => setCurrentSlideIndex(Math.min(3, currentSlideIndex + 1))}
-                disabled={currentSlideIndex === 3}
+                onClick={() => setCurrentSlideIndex(Math.min(mockSlides.length - 1, currentSlideIndex + 1))}
+                disabled={currentSlideIndex === mockSlides.length - 1}
                 className="px-4 py-2 bg-[#1877F2] disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center space-x-1"
               >
                 <span>Próximo</span>

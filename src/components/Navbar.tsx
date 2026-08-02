@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Wrench,
   User as UserIcon,
+  FileText,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -31,6 +32,7 @@ interface NavbarProps {
   user?: User;
   cotas?: CotasState;
   isRetaFinal?: boolean;
+  onOpenNotes?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -45,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   user,
   cotas,
   isRetaFinal = true,
+  onOpenNotes,
 }) => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [inputUsuario, setInputUsuario] = useState('');
@@ -245,6 +248,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
               </div>
+            )}
+
+            {/* Anotações Button */}
+            {isLoggedIn && currentView === 'platform' && (
+              <button
+                onClick={onOpenNotes}
+                className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-[#1877F2] border border-blue-200 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-2xs"
+                title="Minhas Anotações"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Minhas Anotações</span>
+              </button>
             )}
 
             {/* Shopping Cart Icon Button */}

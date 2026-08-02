@@ -58,3 +58,70 @@ export async function executeEstudioFeature(params: {
     criadoEm: new Date().toLocaleDateString('pt-BR'),
   };
 }
+
+export async function fetchMatriculas(): Promise<any[]> {
+  const res = await fetch('/api/matriculas', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.matriculas || [];
+}
+
+export async function updateMatriculaStatus(id: number, status: string): Promise<any> {
+  const res = await fetch('/api/matriculas/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ id, status }),
+  });
+  return await res.json();
+}
+
+export async function fetchPagamentos(): Promise<any[]> {
+  const res = await fetch('/api/pagamentos', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.pagamentos || [];
+}
+
+export async function fetchCodigosAcesso(): Promise<any[]> {
+  const res = await fetch('/api/codigos-acesso', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.codigos || [];
+}
+
+export async function fetchTickets(): Promise<any[]> {
+  const res = await fetch('/api/tickets', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.tickets || [];
+}
+
+export async function fetchLogsAuditoria(): Promise<any[]> {
+  const res = await fetch('/api/logs-auditoria', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.logs || [];
+}
+
+export async function fetchConfiguracoes(): Promise<any[]> {
+  const res = await fetch('/api/configuracoes', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.configuracoes || [];
+}
+
+export async function updateConfiguracaoValue(chave: string, valor: string): Promise<any> {
+  const res = await fetch('/api/configuracoes/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ chave, valor }),
+  });
+  return await res.json();
+}
+
+export async function fetchLeads(): Promise<any[]> {
+  const res = await fetch('/api/leads', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.leads || [];
+}
+
+export async function fetchCampanhasCota(): Promise<any[]> {
+  const res = await fetch('/api/campanhas-cota', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.campanhas || [];
+}
+

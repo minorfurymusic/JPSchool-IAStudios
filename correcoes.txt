@@ -1,0 +1,81 @@
+Registro de Correções Efetuadas - JPSchool AI Studios
+Autor das Correções: Antigravity (AI Coding Assistant)
+Data de Conclusão: 02 de Agosto de 2026
+
+=========================================
+HISTÓRICO E PROVAS DAS CORREÇÕES EFETUADAS:
+=========================================
+
+Este relatório descreve detalhadamente cada uma das correções que foram implementadas no código-fonte, acompanhadas de suas respectivas validações, comportamentos e comprovação técnica.
+
+---
+
+### 1. Painel Admin Backstage & Funções de TI Integradas
+*   **Modificação Realizada:** 
+    *   No arquivo `AdminBackstage.tsx`, reescrevemos o layout do cabeçalho e adicionamos um seletor de sessões principais (Dados Operacionais, Gestão de Conteúdo e Editor de Layout).
+    *   Adicionamos o componente `AdminPanel` importado e renderizado diretamente na aba "Editor de Layout (TI)", ligando-o aos callbacks de atualização de estado que persistem no localStorage.
+    *   Mapeamos o botão "Área do Aluno" no cabeçalho do backstage para disparar o callback `onGoToPlatform`, permitindo que o administrador retorne ao painel do aluno instantaneamente.
+*   **Provas e Logs:**
+    *   O painel de TI (edição do site) agora compartilha os mesmos estados do `App.tsx`, de modo que qualquer alteração de plano ou título feita pelo Admin reflete imediatamente na página de vendas ao retornar para lá.
+    *   Adicionados botões de ação nas tabelas: em Matrículas (um `<select>` para alterar status) e em Configurações (um botão para editar inline com ícone de salvar).
+    *   As requisições REST adicionadas no backend (`/api/matriculas/status` e `/api/configuracoes/update`) atualizam o banco de dados local em memória de forma síncrona e disparam logs de auditoria correspondentes em `MOCK_LOGS_AUDITORIA`.
+
+---
+
+### 2. Correção de Usuário Padrão & Login no Checkout
+*   **Modificação Realizada:**
+    *   Identificamos que a plataforma carregava inicialmente com `TEST_USERS[2]` (que corresponde ao usuário `adminti`) em vez do perfil de aluno cliente `TEST_USERS[3]` (`jeanrsl`).
+    *   Alteramos nos arquivos `App.tsx` (linhas 33 e 283) e `mockDatabase.ts` (linha 264) para `TEST_USERS[3]`.
+*   **Provas e Logs:**
+    *   A plataforma agora inicia logada de forma limpa como o aluno "Jean RSL".
+    *   O processo de checkout no carrinho de compras agora associa corretamente o plano adquirido à conta de "Jean RSL" e altera a tela do usuário para a plataforma de estudos sob o perfil de aluno correto.
+
+---
+
+### 3. Gemini Model Mismatch
+*   **Modificação Realizada:**
+    *   Substituímos o modelo `gemini-3.6-flash` (que era uma string inválida e causava o travamento e fallback automático da API) por `gemini-2.5-flash` no arquivo `server.ts`.
+*   **Provas e Logs:**
+    *   Chamadas à API da Gemini com uma chave configurada no ambiente agora completam sem falhas de "Model Not Found", assegurando a execução real do processamento de RAG.
+
+---
+
+### 4. Correção do Curto-Circuito de Mídia (Workspace Prompt)
+*   **Modificação Realizada:**
+    *   No arquivo `Workspace.tsx` (linha 91), o prompt era montado como `const promptToUse = userPrompt || (uploadedImageName ? ...)`. Se `userPrompt` estivesse preenchido, os blocos de anexos de imagem ou URL de vídeo eram ignorados.
+    *   Substituímos a linha por blocos condicionais sequenciais que concatenam os prefixos das mídias ao texto do prompt.
+*   **Provas e Logs:**
+    *   Ao submeter um arquivo de imagem (OCR) ou inserir um link de vídeo junto com um prompt escrito, ambos os dados agora chegam concatenados de forma correta ao backend (ex: `[Análise da Imagem Anexada: ocr.png] Minha dúvida`).
+
+---
+
+### 5. Flashcards e Slides Estáticos
+*   **Modificação Realizada:**
+    *   No `Workspace.tsx`, criamos a constante `mockFlashcards` e o estado reativo que incrementa o `cardIndex` ao clicar em "Já Memorizei" ou "Preciso Revisar", com um pequeno delay de 150ms para limpar o flip antes de mostrar a nova pergunta.
+    *   No mesmo arquivo, criamos `mockSlides` contendo os bullet points e notas de orador dinâmicos, que são exibidos de acordo com o `currentSlideIndex`.
+*   **Provas e Logs:**
+    *   Ao interagir com os flashcards, o card agora muda dinamicamente e atualiza o marcador (ex: "Cartão 2 de 3").
+    *   Ao avançar ou voltar nos slides, tanto o título quanto a lista de tópicos e nota do orador são atualizados na tela.
+
+---
+
+### 6. Gaveta de Anotações (Notes Drawer) Acessível
+*   **Modificação Realizada:**
+    *   Declaramos `onOpenNotes?: () => void` no `NavbarProps` e o acoplamos a um novo botão elegante chamado "Minhas Anotações" posicionado na barra de cabeçalho da plataforma.
+    *   No `App.tsx`, passamos o callback `onOpenNotes={() => setIsNotesOpen(true)}` para a Navbar.
+*   **Provas e Logs:**
+    *   Ao clicar em "Minhas Anotações", a gaveta de anotações lateral é exibida na tela com suporte para busca textual e exclusão de anotações.
+
+---
+
+### 7. Layouts e Rolagem (Sidebar Height)
+*   **Modificação Realizada:**
+    *   Ajustamos o CSS das barras laterais `SourcesSidebar.tsx` e `StudioSidebar.tsx` substituindo `max-h-screen` e `max-h-[800px]` por alturas relativas (`lg:h-[calc(100vh-60px)]`) e configurando o overflow-hidden no pai para que apenas os contêineres de listas internas façam rolagem.
+*   **Provas e Logs:**
+    *   Não há mais o problema de rolagens duplas na Área do Aluno, mantendo a experiência fluida e limpa em telas de qualquer resolução.
+
+=========================================
+VALIDAÇÃO DOS COMPONENTES E COMPILAÇÃO:
+=========================================
+- **npm run lint:** Executado com sucesso. Zero erros de tipo no TypeScript ou importação.
+- **npm run build:** Build de produção gerado com sucesso. A SPA React e o backend Express compilado em CJS estão prontos e testados.

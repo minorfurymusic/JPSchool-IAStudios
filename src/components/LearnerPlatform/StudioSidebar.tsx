@@ -97,7 +97,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
     : ['g1', 'g2', 'g3', 'g4'];
 
   return (
-    <nav className="w-full lg:w-80 shrink-0 bg-slate-50/90 border-l border-slate-200 p-4 space-y-4 font-sans overflow-y-auto max-h-[800px]">
+    <nav className="w-full lg:w-80 shrink-0 bg-slate-50/90 border-l border-slate-200 p-4 space-y-4 font-sans overflow-y-auto lg:h-[calc(100vh-60px)] lg:max-h-none">
       
       {/* Studio Header */}
       <div className="pb-3 border-b border-slate-200 flex items-center justify-between">
