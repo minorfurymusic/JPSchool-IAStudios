@@ -106,6 +106,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastResultado, setLastResultado] = useState<ProducaoResultado | null>(null);
 
+  const activeQuestions = lastResultado && lastResultado.conteudo && Array.isArray(lastResultado.conteudo.questions)
+    ? lastResultado.conteudo.questions
+    : allQuestions;
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
 
@@ -483,12 +487,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                 <p className="text-[11px] text-slate-600">Selecione a alternativa e confira o gabarito comentado.</p>
               </div>
               <span className="text-xs font-bold bg-white text-[#1877F2] px-3 py-1 rounded-xl border border-blue-200">
-                {Object.keys(selectedAnswers).length} de {allQuestions.length} Respondidas
+                {Object.keys(selectedAnswers).length} de {activeQuestions.length} Respondidas
               </span>
             </div>
 
             <div className="space-y-6">
-              {allQuestions.map((q, qIndex) => {
+              {activeQuestions.map((q, qIndex) => {
                 const userSelected = selectedAnswers[q.id];
                 const isCorrect = userSelected === q.gabaritoIndex;
 

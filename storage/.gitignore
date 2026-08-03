@@ -1,0 +1,10 @@
+# Ignore PDF files and local DB files in the storage folder
+*.pdf
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.mp3
+*.mp4
+db_local.json
+! .gitignore

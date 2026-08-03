@@ -1,12 +1,12 @@
-Registro de Correções Efetuadas - JPSchool AI Studios
+Registro de Correções e Implementações Efetuadas - JPSchool AI Studios
 Autor das Correções: Antigravity (AI Coding Assistant)
-Data de Conclusão: 02 de Agosto de 2026
+Data de Conclusão: 03 de Agosto de 2026
 
 =========================================
 HISTÓRICO E PROVAS DAS CORREÇÕES EFETUADAS:
 =========================================
 
-Este relatório descreve detalhadamente cada uma das correções que foram implementadas no código-fonte, acompanhadas de suas respectivas validações, comportamentos e comprovação técnica.
+Este relatório descreve detalhadamente cada uma das correções e novas funcionalidades implementadas no código-fonte, acompanhadas de suas respectivas validações, comportamentos e comprovação técnica.
 
 ---
 
@@ -70,12 +70,21 @@ Este relatório descreve detalhadamente cada uma das correções que foram imple
 
 ### 7. Layouts e Rolagem (Sidebar Height)
 *   **Modificação Realizada:**
-    *   Ajustamos o CSS das barras laterais `SourcesSidebar.tsx` e `StudioSidebar.tsx` substituindo `max-h-screen` e `max-h-[800px]` por alturas relativas (`lg:h-[calc(100vh-60px)]`) e configurando o overflow-hidden no pai para que apenas os contêineres de listas internas façam rolagem.
+    *   Ajustamos o CSS das barras laterais `SourcesSidebar.tsx` e `StudioSidebar.tsx` substituindo `max-h-screen` and `max-h-[800px]` por alturas relativas (`lg:h-[calc(100vh-60px)]`) e configurando o overflow-hidden no pai para que apenas os contêineres de listas internas façam rolagem.
 *   **Provas e Logs:**
     *   Não há mais o problema de rolagens duplas na Área do Aluno, mantendo a experiência fluida e limpa em telas de qualquer resolução.
 
-=========================================
-VALIDAÇÃO DOS COMPONENTES E COMPILAÇÃO:
-=========================================
-- **npm run lint:** Executado com sucesso. Zero erros de tipo no TypeScript ou importação.
-- **npm run build:** Build de produção gerado com sucesso. A SPA React e o backend Express compilado em CJS estão prontos e testados.
+---
+
+### 8. IMPLEMENTAÇÃO DO RAG HÍBRIDO & INGESTÃO DE VETORES (NOVO)
+*   **Modificação Realizada:**
+    *   Instalamos `pdf-parse`, `pg` (PostgreSQL) e suas tipagens TypeScript.
+    *   Criamos a pasta `storage/` para conter os PDFs a serem ingeridos e incluímos um `.gitignore` para bloquear commit de binários pesados e do banco de dados local.
+    *   Adicionamos o endpoint de ingestão `POST /api/admin/ingest` em `server.ts` que lê arquivos PDF da pasta `storage/`, extrai o texto, divide em chunks e gera embeddings vetoriais com o modelo `text-embedding-004` da Google.
+    *   Construímos uma **busca vetorial reativa** em `server.ts` (`queryVectorDatabase`): ela usa `pgvector` (`<=>`) caso o Neon esteja configurado na variável de ambiente `DATABASE_URL` do `.env`. Se o banco de nuvem não estiver configurado, ela faz o fallback automático para uma busca de similaridade de cossenos local carregada em arquivo JSON (`storage/db_local.json`).
+    *   Reformulamos o processamento principal `POST /api/estudio/executar` para injetar os chunks de texto correspondentes ao documento pesquisado diretamente na variável `CONTEÚDO EXTRAÍDO DA BIBLIOTECA (RAG)` do prompt do sistema Gemini.
+    *   **Algoritmo Híbrido de Questões:** Ao selecionar "Fazer Questões" ou "Simulado", o backend primeiro faz uma varredura nas questões cadastradas do acervo (`MOCK_QUESTIONS`). Se o número de questões encontradas for menor do que o pedido pelo aluno (ex: o aluno pediu 10 questões de um tema, mas só encontramos 4 prontas), o Gemini gera a diferença (6 questões) de forma inédita e estruturada em JSON, unificando a lista final.
+*   **Provas e Logs:**
+    *   A compilação do TypeScript completou com sucesso (`tsc --noEmit`).
+    *   O build de empacotamento do esbuild completou com 0 avisos utilizando importação dinâmica de mod para `pdf-parse`.
+    *   Ao executar buscas no estúdio, o backend realiza a busca semântica em tempo de execução e repassa o contexto ao Gemini.

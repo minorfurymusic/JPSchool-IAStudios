@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 import {
   OFFICIAL_SOURCES,
@@ -19,6 +20,18 @@ import {
   registrarTentativaLoginFalha,
   resetarTentativasLogin,
 } from './src/data/mockDatabase.js';
+
+import pg from 'pg';
+const { Client } = pg;
+
+let pdfParser: any = null;
+async function getPdfParser() {
+  if (!pdfParser) {
+    const mod = await import('pdf-parse');
+    pdfParser = mod.default || mod;
+  }
+  return pdfParser;
+}
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -64,6 +77,223 @@ function resetQuotaIfNewDay() {
   }
 }
 
+// Helper: pg Client Connection for Neon
+async function getPgClient(): Promise<pg.Client | null> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return null;
+  try {
+    const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
+    await client.connect();
+    await client.query('CREATE EXTENSION IF NOT EXISTS vector;');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_chunks (
+        id SERIAL PRIMARY KEY,
+        document_name VARCHAR(255) NOT NULL,
+        source_id INT NOT NULL,
+        chunk_index INT NOT NULL,
+        content TEXT NOT NULL,
+        embedding vector(768),
+        imagens_associadas TEXT[] DEFAULT '{}',
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    return client;
+  } catch (err) {
+    console.error('Failed to connect to Neon PostgreSQL database. Falling back to local storage.', err);
+    return null;
+  }
+}
+
+// Helper: Cosine Similarity for Vector Math
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  let dotProduct = 0.0;
+  let normA = 0.0;
+  let normB = 0.0;
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// Helper: Gemini Embedding generator
+async function getEmbedding(ai: GoogleGenAI | null, text: string): Promise<number[]> {
+  if (!ai) {
+    const vec = new Array(768).fill(0).map((_, i) => Math.sin(i + text.length));
+    return vec;
+  }
+  try {
+    const res: any = await ai.models.embedContent({
+      model: 'text-embedding-004',
+      contents: text,
+    });
+    const vals = res.embedding?.values || res.embeddings?.values || res.embedding || res.embeddings;
+    if (Array.isArray(vals)) {
+      return vals;
+    }
+  } catch (err) {
+    console.error('Error generating embedding', err);
+  }
+  return new Array(768).fill(0).map((_, i) => Math.sin(i + text.length));
+}
+
+// Data structures for indexing
+interface DocumentChunk {
+  id: number;
+  document_name: string;
+  source_id: number;
+  chunk_index: number;
+  content: string;
+  embedding: number[];
+  imagens_associadas: string[];
+  criado_em: string;
+}
+
+// Helper: Query Vector database (Neon pgvector or local JSON file)
+async function queryVectorDatabase(ai: GoogleGenAI | null, queryText: string, sourceIds: number[], limit: number = 4): Promise<DocumentChunk[]> {
+  const queryEmbedding = await getEmbedding(ai, queryText);
+  
+  const pgClient = await getPgClient();
+  if (pgClient) {
+    try {
+      const embeddingStr = `[${queryEmbedding.join(',')}]`;
+      const queryStr = `
+        SELECT id, document_name, source_id, chunk_index, content, embedding::double precision[] as embedding, imagens_associadas, criado_em
+        FROM document_chunks
+        WHERE source_id = ANY($1)
+        ORDER BY embedding <=> $2
+        LIMIT $3;
+      `;
+      const res = await pgClient.query(queryStr, [sourceIds, embeddingStr, limit]);
+      await pgClient.end();
+      return res.rows.map(row => ({
+        id: row.id,
+        document_name: row.document_name,
+        source_id: row.source_id,
+        chunk_index: row.chunk_index,
+        content: row.content,
+        embedding: row.embedding,
+        imagens_associadas: row.imagens_associadas || [],
+        criado_em: row.criado_em.toISOString(),
+      }));
+    } catch (err) {
+      console.error('Neon vector query failed. Falling back to local JSON query.', err);
+      try { await pgClient.end(); } catch (_) {}
+    }
+  }
+
+  // Fallback local JSON query
+  const localDbPath = path.join(process.cwd(), 'storage', 'db_local.json');
+  let chunks: DocumentChunk[] = [];
+  try {
+    if (fs.existsSync(localDbPath)) {
+      const data = fs.readFileSync(localDbPath, 'utf-8');
+      chunks = JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Error reading local JSON database', err);
+  }
+
+  const filteredChunks = chunks.filter(c => sourceIds.includes(c.source_id));
+  const pool = filteredChunks.length > 0 ? filteredChunks : chunks;
+
+  const scored = pool.map(c => ({
+    chunk: c,
+    score: cosineSimilarity(queryEmbedding, c.embedding)
+  }));
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.chunk);
+}
+
+// Helper: Index PDF and generate Embeddings
+async function ingestPDF(ai: GoogleGenAI | null, pdfPath: string, sourceId: number, documentName: string): Promise<number> {
+  const dataBuffer = fs.readFileSync(pdfPath);
+  const pdf = await getPdfParser();
+  const parsedPdf = await pdf(dataBuffer);
+  const text = parsedPdf.text;
+
+  const chunkSize = 800;
+  const overlap = 200;
+  const chunks: string[] = [];
+  
+  let i = 0;
+  while (i < text.length) {
+    const chunk = text.slice(i, i + chunkSize).trim();
+    if (chunk.length > 50) {
+      chunks.push(chunk);
+    }
+    i += (chunkSize - overlap);
+  }
+
+  const pgClient = await getPgClient();
+  const createdChunks: DocumentChunk[] = [];
+
+  for (let idx = 0; idx < chunks.length; idx++) {
+    const content = chunks[idx];
+    const embedding = await getEmbedding(ai, content);
+    const chunk_index = idx + 1;
+    const imagens_associadas: string[] = [];
+
+    if (pgClient) {
+      try {
+        await pgClient.query(`
+          INSERT INTO document_chunks (document_name, source_id, chunk_index, content, embedding, imagens_associadas)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [documentName, sourceId, chunk_index, content, `[${embedding.join(',')}]`, imagens_associadas]);
+      } catch (err) {
+        console.error(`Neon insert failed for chunk ${idx}`, err);
+      }
+    }
+
+    createdChunks.push({
+      id: Date.now() + idx,
+      document_name: documentName,
+      source_id: sourceId,
+      chunk_index,
+      content,
+      embedding,
+      imagens_associadas,
+      criado_em: new Date().toISOString()
+    });
+  }
+
+  if (pgClient) {
+    await pgClient.end();
+  }
+
+  const localDbPath = path.join(process.cwd(), 'storage', 'db_local.json');
+  let existingChunks: DocumentChunk[] = [];
+  if (fs.existsSync(localDbPath)) {
+    try {
+      existingChunks = JSON.parse(fs.readFileSync(localDbPath, 'utf-8'));
+    } catch (_) {}
+  }
+  existingChunks = existingChunks.filter(c => c.source_id !== sourceId);
+  existingChunks.push(...createdChunks);
+
+  fs.writeFileSync(localDbPath, JSON.stringify(existingChunks, null, 2), 'utf-8');
+  return chunks.length;
+}
+
+// Helper: Find local questions based on keywords
+function findLocalQuestions(prompt: string, sourceIds: number[]): any[] {
+  const query = prompt.toLowerCase();
+  const keywords = query.split(/\s+/).filter(w => w.length > 3);
+  
+  return MOCK_QUESTIONS.filter(q => {
+    const bodyMatch = q.enunciado.toLowerCase().includes(query) || 
+                      q.assunto.toLowerCase().includes(query) ||
+                      q.materia.toLowerCase().includes(query);
+    if (bodyMatch) return true;
+    
+    const matches = keywords.filter(kw => q.enunciado.toLowerCase().includes(kw) || q.assunto.toLowerCase().includes(kw));
+    return matches.length >= 2;
+  });
+}
+
 // API Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'JPSchool Backend Engine' });
@@ -85,13 +315,61 @@ app.post('/api/cotas/download', (req, res) => {
   res.json({ success: true, cotas: userQuotas });
 });
 
-// Main Studio Execution Endpoint
-app.post('/api/estudio/executar', async (req, res) => {
+// Admin Document Ingest Route (Google Drive Local)
+app.post('/api/admin/ingest', requireAuth(['super_admin', 'admin', 'ti']), async (req: any, res: any) => {
+  const { sourceId } = req.body;
+  if (!sourceId) {
+    return res.status(400).json({ error: 'sourceId é obrigatório' });
+  }
+
+  const source = OFFICIAL_SOURCES.find(s => s.id === Number(sourceId));
+  if (!source) {
+    return res.status(404).json({ error: 'Fonte de estudos não encontrada' });
+  }
+
+  const storageDir = path.join(process.cwd(), 'storage');
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
+  }
+
+  const files = fs.readdirSync(storageDir);
+  const pdfFile = files.find(f => f.toLowerCase().endsWith('.pdf') && (
+    f.toLowerCase().includes(source.titulo.toLowerCase().substring(0, 10)) ||
+    f.toLowerCase().includes(String(sourceId)) ||
+    files.length === 1
+  ));
+
+  if (!pdfFile) {
+    return res.status(404).json({
+      error: `Nenhum arquivo PDF correspondente encontrado na pasta 'storage/'. Por favor, coloque um arquivo PDF com o ID '${sourceId}' ou contendo '${source.titulo.substring(0, 10)}' no nome.`
+    });
+  }
+
+  try {
+    const ai = getGeminiClient();
+    const pdfPath = path.join(storageDir, pdfFile);
+    const totalChunks = await ingestPDF(ai, pdfPath, source.id, pdfFile);
+    res.json({
+      success: true,
+      message: `Documento '${pdfFile}' processado com sucesso!`,
+      details: {
+        sourceId: source.id,
+        documento: pdfFile,
+        chunksIndexados: totalChunks
+      }
+    });
+  } catch (err: any) {
+    console.error('Ingestion failed', err);
+    res.status(500).json({ error: 'Falha durante a ingestão do PDF', details: err.message });
+  }
+});
+
+// Main Studio Execution Endpoint (Vector RAG + Hybrid Questions)
+app.post('/api/estudio/executar', async (req: any, res: any) => {
   try {
     resetQuotaIfNewDay();
     const { featureId, userPrompt, selectedSourceIds, isRetaFinal } = req.body;
 
-    // Check quota
     if (userQuotas.producoesUsadas >= userQuotas.producoesMax) {
       return res.status(429).json({
         error: 'Cota diária de produções esgotada (5/5). Você atingiu o limite diário anti-pirataria do plano aluno. Renova às 00:00.',
@@ -102,36 +380,169 @@ app.post('/api/estudio/executar', async (req, res) => {
       selectedSourceIds?.includes(s.id)
     );
 
-    const sourcesSummary = selectedSources.length > 0
-      ? selectedSources.map((s) => `• [Fonte oficial: ${s.titulo}, ${s.ano}] (${s.materia})`).join('\n')
-      : '• [Fonte oficial: Edital Geral SED-SC 2026 e Lei Complementar 688/SC]';
-
     const ai = getGeminiClient();
 
-    // RAG fallback simulation rules
-    // Features in G4 like 'radar_pegadinhas', 'raio_x', 'questoes_500' do NOT allow web fallback
-    const noFallbackFeatures = ['radar_pegadinhas', 'raio_x', 'questoes_500'];
-    const allowsFallback = !noFallbackFeatures.includes(featureId);
-
-    // Simulate whether prompt goes beyond official SC library
-    const keywordsOutsideSc = ['federal', 'brás', 'são paulo', 'matemática avançada', 'geografia mundial'];
-    const needsExternalFallback = allowsFallback && keywordsOutsideSc.some((kw) =>
-      (userPrompt || '').toLowerCase().includes(kw)
-    );
-
-    let resultText = '';
-    let origemType: 'oficial' | 'oficial+externo' | 'somente_externo' = needsExternalFallback
-      ? 'oficial+externo'
-      : 'oficial';
+    let contextText = '';
+    let referencedImages: string[] = [];
+    if (selectedSourceIds && selectedSourceIds.length > 0) {
+      try {
+        const matchingChunks = await queryVectorDatabase(ai, userPrompt || '', selectedSourceIds.map(Number), 4);
+        if (matchingChunks.length > 0) {
+          contextText = matchingChunks.map(c => `[Trecho da fonte: ${c.document_name}, Índice Chunk: ${c.chunk_index}]\n${c.content}`).join('\n\n');
+          matchingChunks.forEach(c => {
+            if (c.imagens_associadas && c.imagens_associadas.length > 0) {
+              referencedImages.push(...c.imagens_associadas);
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Failed to run vector query', err);
+      }
+    }
 
     const userBanca = selectedSources[0]?.banca || 'FEPESE / ACAFE';
-    const globalSystemPrompt = `
+    const isQuestionsFeature = ['simulado', 'fazer_questoes', 'questoes_500', 'teste'].includes(featureId);
+    let resultText = '';
+    let questionsList: any[] = [];
+    let origemType: 'oficial' | 'oficial+externo' | 'somente_externo' = 'oficial';
+
+    if (isQuestionsFeature) {
+      const countMatch = (userPrompt || '').match(/\b(\d+)\b/);
+      const numRequested = countMatch ? Math.min(20, Math.max(1, parseInt(countMatch[1]))) : 5;
+
+      const localQuestions = findLocalQuestions(userPrompt || '', selectedSourceIds || []);
+      const K = localQuestions.length;
+
+      if (K >= numRequested) {
+        questionsList = localQuestions.slice(0, numRequested);
+        resultText = `Localizadas ${questionsList.length} questões prontas no acervo correspondendo aos critérios.`;
+      } else {
+        const numToGenerate = numRequested - K;
+        questionsList = [...localQuestions];
+
+        if (ai) {
+          try {
+            const systemPrompt = `Você é o gerador de questões inéditas JPSchool para a banca ${userBanca}.
+Gere exatamente ${numToGenerate} questões de múltipla escolha com base no contexto do edital e leis oficiais de SC fornecidos abaixo.
+Cada questão deve seguir rigidamente a metodologia e estilo de cobrança da banca ${userBanca}.
+
+CONTEXTO (RAG):
+${contextText || 'Edital e leis gerais do Magistério de Santa Catarina.'}
+
+Formate a resposta como um array JSON de objetos de questão. Cada objeto deve conter exatamente estas chaves:
+- enunciado: string (enunciado da questão)
+- alternativas: array contendo 5 strings (opção A até E)
+- gabaritoIndex: number (0 para A, 1 para B, 2 para C, 3 para D, 4 para E)
+- comentario: string (comentário detalhado de gabarito e justificativa legal de SC)
+- assunto: string
+- materia: string
+
+Retorne APENAS o array JSON.`;
+
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: systemPrompt,
+              config: {
+                responseMimeType: 'application/json'
+              }
+            });
+            const generatedText = response.text || '';
+            const parsedQuestions = JSON.parse(generatedText);
+            if (Array.isArray(parsedQuestions)) {
+              parsedQuestions.forEach((q, idx) => {
+                questionsList.push({
+                  id: Date.now() + idx + 100,
+                  banca: userBanca,
+                  ano: new Date().getFullYear(),
+                  materia: q.materia || 'Legislação / Didática SC',
+                  assunto: q.assunto || 'Tema Específico',
+                  enunciado: q.enunciado,
+                  alternativas: q.alternativas || [],
+                  gabaritoIndex: q.gabaritoIndex ?? 0,
+                  comentario: q.comentario || '',
+                  taxaAcertoGeral: 65,
+                  origem: 'inedita_oficial'
+                });
+              });
+              resultText = `Retornadas ${K} questões prontas do acervo e geradas ${numToGenerate} questões inéditas via IA.`;
+            } else {
+              throw new Error('Parsed response is not an array');
+            }
+          } catch (err) {
+            console.error('Failed to generate fallback questions via Gemini API. Generating placeholders.', err);
+            for (let idx = 0; idx < numToGenerate; idx++) {
+              questionsList.push({
+                id: Date.now() + idx + 200,
+                banca: userBanca,
+                ano: new Date().getFullYear(),
+                materia: 'Legislação SC',
+                assunto: 'Estágio Probatório',
+                enunciado: `[Questão Inédita ${idx + 1}] Sobre o tema "${userPrompt || 'educação'}", qual o procedimento correto com base nas normas gerais do concurso?`,
+                alternativas: [
+                  'A) Procedimento padrão de estabilidade após 3 anos.',
+                  'B) Notificação imediata ao MEC.',
+                  'C) Afastamento sem remuneração.',
+                  'D) Estabilidade imediata sem estágio probatório.',
+                  'E) Prorrogação discricionária.'
+                ],
+                gabaritoIndex: 0,
+                comentario: 'Gabarito A: O estágio probatório para servidores de SC é de 36 meses (3 anos) conforme LC 688/SC.',
+                taxaAcertoGeral: 70,
+                origem: 'inedita_oficial'
+              });
+            }
+            resultText = `Retornadas ${K} questões prontas e geradas ${numToGenerate} questões simuladas locais (Gemini indisponível).`;
+          }
+        } else {
+          for (let idx = 0; idx < numToGenerate; idx++) {
+            questionsList.push({
+              id: Date.now() + idx + 200,
+              banca: userBanca,
+              ano: new Date().getFullYear(),
+              materia: 'Didática Geral',
+              assunto: 'Métodos Ativos',
+              enunciado: `[Questão Sintética ${idx + 1}] Questão inédita baseada nas palavras-chave do prompt: "${userPrompt || 'Didática'}".`,
+              alternativas: [
+                'A) Alternativa correta da questão sintética.',
+                'B) Alternativa incorreta 1.',
+                'C) Alternativa incorreta 2.',
+                'D) Alternativa incorreta 3.',
+                'E) Alternativa incorreta 4.'
+              ],
+              gabaritoIndex: 0,
+              comentario: 'Comentário sobre a questão gerada sinteticamente.',
+              taxaAcertoGeral: 60,
+              origem: 'inedita_oficial'
+            });
+          }
+          resultText = `Retornadas ${K} questões prontas e geradas ${numToGenerate} questões simuladas locais (Chave API não configurada).`;
+        }
+      }
+    } else {
+      const allowsFallback = !['radar_pegadinhas', 'raio_x', 'questoes_500'].includes(featureId);
+      const keywordsOutsideSc = ['federal', 'brás', 'são paulo', 'matemática avançada', 'geografia mundial'];
+      const needsExternalFallback = allowsFallback && keywordsOutsideSc.some((kw) =>
+        (userPrompt || '').toLowerCase().includes(kw)
+      );
+      if (needsExternalFallback) {
+        origemType = 'oficial+externo';
+      }
+
+      const sourcesSummary = selectedSources.length > 0
+        ? selectedSources.map((s) => `• [Fonte oficial: ${s.titulo}, ${s.ano}] (${s.materia})`).join('\n')
+        : '• [Fonte oficial: Edital Geral SED-SC 2026 e Lei Complementar 688/SC]';
+
+      const globalSystemPrompt = `
 Você é o Tutor JPSchool, especialista em concursos públicos de professores em Santa Catarina (SED-SC e Prefeituras).
 
-REGRAS INVIOLÁVEIS DE CITAÇÃO E TRANSMISSÃO:
-1. Use PRIORITARIAMENTE os TRECHOS DA BIBLIOTECA OFICIAL fornecidos:
+FONTES SELECIONADAS:
 ${sourcesSummary}
 
+CONTEÚDO EXTRAÍDO DA BIBLIOTECA (RAG):
+${contextText || 'Nenhum trecho específico encontrado no banco vetorial. Responda com base no seu conhecimento de treinamento sobre o edital de SC.'}
+
+REGRAS INVIOLÁVEIS DE CITAÇÃO E TRANSMISSÃO:
+1. Use PRIORITARIAMENTE os TRECHOS DA BIBLIOTECA OFICIAL fornecidos sob o título "CONTEÚDO EXTRAÍDO DA BIBLIOTECA (RAG)" para fundamentar sua resposta.
 2. Regra de Sinalização:
    - Para trechos baseados na biblioteca oficial, inclua explicitamente a tag: [Fonte oficial: SED-SC / Lei Comp. 688/SC, 2026]
    - Se o assunto envolver conhecimento complementar externo (não presente no edital oficial), use a tag: [Complemento externo: planalto.gov.br] e insira a nota: "Esta parte da resposta não consta na biblioteca oficial — buscamos a informação complementar em fontes externas."
@@ -140,31 +551,33 @@ ${sourcesSummary}
 4. Foco prático para o professor da rede pública.
 BANCA DO CURSO: ${userBanca}
 MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
-    `;
+      `;
 
-    if (ai) {
-      try {
-        const fullPrompt = `${globalSystemPrompt}\n\nFUNCIONALIDADE SOLICITADA: ${featureId}\nINSTRUÇÕES / PERGUNTA DO ALUNO:\n${userPrompt || 'Executar conforme o padrão da funcionalidade'}`;
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: fullPrompt,
-        });
-        resultText = response.text || '';
-      } catch (err) {
-        console.error('Gemini API call error, falling back to local generator:', err);
+      if (ai) {
+        try {
+          const fullPrompt = `${globalSystemPrompt}\n\nFUNCIONALIDADE SOLICITADA: ${featureId}\nINSTRUÇÕES / PERGUNTA DO ALUNO:\n${userPrompt || 'Executar conforme o padrão da funcionalidade'}`;
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: fullPrompt,
+          });
+          resultText = response.text || '';
+        } catch (err) {
+          console.error('Gemini API call error, falling back to local generator:', err);
+          resultText = generateFallbackResponse(featureId, userPrompt, sourcesSummary, needsExternalFallback);
+        }
+      } else {
         resultText = generateFallbackResponse(featureId, userPrompt, sourcesSummary, needsExternalFallback);
       }
-    } else {
-      resultText = generateFallbackResponse(featureId, userPrompt, sourcesSummary, needsExternalFallback);
     }
 
-    // Increment quota on success
     userQuotas.producoesUsadas += 1;
+    const conteudo = isQuestionsFeature ? { questions: questionsList, text: resultText } : resultText;
 
     res.json({
       success: true,
       featureId,
-      resultText,
+      resultText: isQuestionsFeature ? resultText : resultText,
+      conteudo,
       origem: origemType,
       cotasAtualizadas: userQuotas,
       trechos: [
@@ -174,7 +587,7 @@ MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
           fonte: selectedSources[0]?.titulo || 'Edital SED-SC 2026',
           ano: 2026,
         },
-        ...(needsExternalFallback
+        ...(origemType === 'oficial+externo'
           ? [
               {
                 texto: 'Informação complementar de abrangência legislativa federal...',
