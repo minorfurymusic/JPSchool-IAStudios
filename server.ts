@@ -27,7 +27,7 @@ const { Client } = pg;
 let pdfParser: any = null;
 async function getPdfParser() {
   if (!pdfParser) {
-    const mod = await import('pdf-parse');
+    const mod = await import('pdf-parse') as any;
     pdfParser = mod.default || mod;
   }
   return pdfParser;
@@ -297,6 +297,14 @@ function findLocalQuestions(prompt: string, sourceIds: number[]): any[] {
 // API Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'JPSchool Backend Engine' });
+});
+
+app.get('/api/sources', (req, res) => {
+  res.json({ sources: OFFICIAL_SOURCES });
+});
+
+app.get('/api/questions', (req, res) => {
+  res.json({ questions: MOCK_QUESTIONS });
 });
 
 app.get('/api/cotas', (req, res) => {
@@ -853,6 +861,100 @@ app.get('/api/leads', requireAuth(['super_admin', 'admin', 'ti']), (req, res) =>
 
 app.get('/api/campanhas-cota', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
   res.json({ campanhas: MOCK_CAMPANHAS_COTA });
+});
+
+app.post('/api/admin/sources', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  const { titulo, tipo, materia, banca, ano, tamanho } = req.body;
+  if (!titulo || !tipo || !materia || !banca) {
+    return res.status(400).json({ error: 'Título, tipo, matéria e banca são obrigatórios' });
+  }
+
+  const newSource = {
+    id: OFFICIAL_SOURCES.length + 1,
+    titulo,
+    tipo,
+    materia,
+    banca,
+    ano: Number(ano) || new Date().getFullYear(),
+    tamanho: tamanho || '1.0 MB',
+    selecionada: false
+  };
+
+  OFFICIAL_SOURCES.push(newSource);
+
+  MOCK_LOGS_AUDITORIA.push({
+    id: MOCK_LOGS_AUDITORIA.length + 1,
+    acao: 'CADASTRO_FONTE_ESTUDO',
+    detalhes: `Nova fonte de estudo cadastrada: ${titulo} (ID ${newSource.id})`,
+    dadosAntes: {},
+    dadosDepois: newSource,
+    criadoEm: new Date().toISOString()
+  });
+
+  res.json({ success: true, source: newSource, sources: OFFICIAL_SOURCES });
+});
+
+app.post('/api/admin/questions', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  const { banca, materia, assunto, enunciado, alternativas, gabaritoIndex, comentario } = req.body;
+  if (!enunciado || !alternativas || alternativas.length < 2 || gabaritoIndex === undefined) {
+    return res.status(400).json({ error: 'Enunciado, alternativas e gabaritoIndex são obrigatórios' });
+  }
+
+  const newQuestion = {
+    id: MOCK_QUESTIONS.length + 1,
+    banca: banca || 'FEPESE / ACAFE',
+    ano: new Date().getFullYear(),
+    materia: materia || 'Legislação SC',
+    assunto: assunto || 'Geral',
+    enunciado,
+    alternativas,
+    gabaritoIndex: Number(gabaritoIndex),
+    comentario: comentario || '',
+    taxaAcertoGeral: 75,
+    origem: 'inedita_oficial' as const
+  };
+
+  MOCK_QUESTIONS.push(newQuestion);
+
+  MOCK_LOGS_AUDITORIA.push({
+    id: MOCK_LOGS_AUDITORIA.length + 1,
+    acao: 'CADASTRO_QUESTAO',
+    detalhes: `Nova questão cadastrada no banco de questões (ID ${newQuestion.id})`,
+    dadosAntes: {},
+    dadosDepois: newQuestion,
+    criadoEm: new Date().toISOString()
+  });
+
+  res.json({ success: true, question: newQuestion, questions: MOCK_QUESTIONS });
+});
+
+app.get('/api/admin/sources/status', requireAuth(['super_admin', 'admin', 'ti']), async (req, res) => {
+  const pgClient = await getPgClient();
+  const counts: Record<number, number> = {};
+
+  if (pgClient) {
+    try {
+      const resDb = await pgClient.query('SELECT source_id, COUNT(*) as cnt FROM document_chunks GROUP BY source_id;');
+      resDb.rows.forEach(row => {
+        counts[row.source_id] = Number(row.cnt);
+      });
+      await pgClient.end();
+    } catch (_) {
+      try { await pgClient.end(); } catch (__) {}
+    }
+  } else {
+    const localDbPath = path.join(process.cwd(), 'storage', 'db_local.json');
+    if (fs.existsSync(localDbPath)) {
+      try {
+        const chunks = JSON.parse(fs.readFileSync(localDbPath, 'utf-8'));
+        chunks.forEach((c: any) => {
+          counts[c.source_id] = (counts[c.source_id] || 0) + 1;
+        });
+      } catch (_) {}
+    }
+  }
+
+  res.json({ counts });
 });
 
 // API Routes for Onda 2 Security Rules (Backend Logic)

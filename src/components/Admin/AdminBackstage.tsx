@@ -35,6 +35,12 @@ import {
   updateConfiguracaoValue,
   fetchLeads,
   fetchCampanhasCota,
+  fetchSources,
+  fetchQuestions,
+  addOfficialSource,
+  addQuestion,
+  fetchSourcesIndexStatus,
+  ingestDocumentSource,
 } from '../../services/api';
 import { AdminPanel } from './AdminPanel';
 
@@ -175,6 +181,150 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
       }
     } catch (err) {
       showStatus('Erro de comunicação com o servidor', 'error');
+    }
+  };
+
+  // Content states
+  const [sources, setSources] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [indexStatus, setIndexStatus] = useState<Record<number, number>>({});
+
+  // Forms visibility
+  const [showAddSource, setShowAddSource] = useState(false);
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+
+  // Source form fields
+  const [srcTitle, setSrcTitle] = useState('');
+  const [srcType, setSrcType] = useState('apostila');
+  const [srcMateria, setSrcMateria] = useState('Legislação SC');
+  const [srcBanca, setSrcBanca] = useState('FEPESE / ACAFE');
+  const [srcAno, setSrcAno] = useState(new Date().getFullYear().toString());
+  const [srcSize, setSrcSize] = useState('2.5 MB');
+
+  // Question form fields
+  const [qEnunciado, setQEnunciado] = useState('');
+  const [qAltA, setQAltA] = useState('');
+  const [qAltB, setQAltB] = useState('');
+  const [qAltC, setQAltC] = useState('');
+  const [qAltD, setQAltD] = useState('');
+  const [qAltE, setQAltE] = useState('');
+  const [qGabarito, setQGabarito] = useState(0);
+  const [qMateria, setQMateria] = useState('Legislação SC');
+  const [qAssunto, setQAssunto] = useState('Geral');
+  const [qComentario, setQComentario] = useState('');
+
+  // RAG action states
+  const [ingesterId, setIngesterId] = useState<number | null>(null);
+
+  const loadContentData = async () => {
+    try {
+      setIsLoading(true);
+      const [srcs, qsts, idxs] = await Promise.all([
+        fetchSources(),
+        fetchQuestions(),
+        fetchSourcesIndexStatus(),
+      ]);
+      setSources(srcs);
+      setQuestions(qsts);
+      setIndexStatus(idxs);
+    } catch (err) {
+      console.error('Error loading content management data', err);
+      showStatus('Erro ao carregar dados do gerenciador de conteúdo.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'conteudo') {
+      loadContentData();
+    }
+  }, [activeSection]);
+
+  const handleCreateSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!srcTitle.trim()) {
+      showStatus('Por favor, informe o título do material.', 'error');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const res = await addOfficialSource({
+        titulo: srcTitle,
+        tipo: srcType,
+        materia: srcMateria,
+        banca: srcBanca,
+        ano: Number(srcAno),
+        tamanho: srcSize,
+      });
+      if (res.success) {
+        showStatus('Material de estudo cadastrado com sucesso!', 'success');
+        setSources(res.sources);
+        setSrcTitle('');
+        setShowAddSource(false);
+      } else {
+        showStatus(res.error || 'Erro ao cadastrar material.', 'error');
+      }
+    } catch (err) {
+      showStatus('Erro de rede ao cadastrar material.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qEnunciado.trim() || !qAltA.trim() || !qAltB.trim()) {
+      showStatus('Por favor, preencha o enunciado e pelo menos as duas primeiras alternativas.', 'error');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const res = await addQuestion({
+        banca: srcBanca,
+        materia: qMateria,
+        assunto: qAssunto,
+        enunciado: qEnunciado,
+        alternativas: [qAltA, qAltB, qAltC || 'N/A', qAltD || 'N/A', qAltE || 'N/A'].filter((a) => a.trim() !== ''),
+        gabaritoIndex: qGabarito,
+        comentario: qComentario,
+      });
+      if (res.success) {
+        showStatus('Questão inédita cadastrada com sucesso!', 'success');
+        setQuestions(res.questions);
+        setQEnunciado('');
+        setQAltA('');
+        setQAltB('');
+        setQAltC('');
+        setQAltD('');
+        setQAltE('');
+        setQComentario('');
+        setShowAddQuestion(false);
+      } else {
+        showStatus(res.error || 'Erro ao cadastrar questão.', 'error');
+      }
+    } catch (err) {
+      showStatus('Erro de rede ao cadastrar questão.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleIngestRAG = async (sourceId: number) => {
+    try {
+      setIngesterId(sourceId);
+      const res = await ingestDocumentSource(sourceId);
+      if (res.success) {
+        showStatus(`Documento indexado com sucesso! ${res.details.chunksIndexados} fragmentos cadastrados.`, 'success');
+        const idxs = await fetchSourcesIndexStatus();
+        setIndexStatus(idxs);
+      } else {
+        showStatus(res.error || 'Falha ao indexar arquivo.', 'error');
+      }
+    } catch (err: any) {
+      showStatus(err.message || 'Erro ao processar indexação no RAG.', 'error');
+    } finally {
+      setIngesterId(null);
     }
   };
 
@@ -829,17 +979,435 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
               </button>
             </div>
 
-            {/* Content Placeholders */}
-            <div className="bg-slate-850 rounded-3xl p-6 sm:p-8 border border-slate-800 min-h-[300px] flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center text-blue-400 border border-slate-700">
-                <Layers className="w-8 h-8" />
-              </div>
-              <div className="max-w-md space-y-2">
-                <h3 className="text-lg font-bold text-white">Módulo de {contentTab.toUpperCase()} (Gestão de Conteúdo)</h3>
-                <p className="text-xs text-slate-400">
-                  O banco de dados foi resetado e este painel Admin está pronto para receber novas estruturas de conteúdo conforme os próximos testes.
-                </p>
-              </div>
+            {/* Content Tabs Body */}
+            <div className="bg-slate-850 rounded-3xl p-6 sm:p-8 border border-slate-800 min-h-[300px]">
+              
+              {/* TAB 1: CURSOS & AULAS */}
+              {contentTab === 'aulas' && (
+                <div className="space-y-6 w-full text-left">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Materiais de Estudo (Cursos & Aulas)</h3>
+                      <p className="text-xs text-slate-400">Cadastre e gerencie a biblioteca oficial de conteúdos que aparece na barra lateral do aluno.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowAddSource(!showAddSource)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10 shrink-0"
+                    >
+                      {showAddSource ? 'Cancelar' : 'Adicionar Novo Material'}
+                    </button>
+                  </div>
+
+                  {showAddSource && (
+                    <form onSubmit={handleCreateSource} className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4 max-w-xl animate-in fade-in slide-in-from-top-2">
+                      <h4 className="text-sm font-bold text-white">Novo Material de Estudo</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Título do Documento</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Estatuto do Magistério Público Estadual de SC"
+                            value={srcTitle}
+                            onChange={(e) => setSrcTitle(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Tipo de Conteúdo</label>
+                          <select
+                            value={srcType}
+                            onChange={(e) => setSrcType(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="lei">Lei Estadual / Legislação</option>
+                            <option value="edital">Edital de Concurso</option>
+                            <option value="apostila">Apostila em PDF</option>
+                            <option value="mapa_mental">Mapas Mentais</option>
+                            <option value="video">Vídeo Explicativo</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Matéria/Disciplina</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Legislação SC"
+                            value={srcMateria}
+                            onChange={(e) => setSrcMateria(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Banca Foco</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: FEPESE / ACAFE"
+                            value={srcBanca}
+                            onChange={(e) => setSrcBanca(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Ano</label>
+                          <input
+                            type="number"
+                            required
+                            placeholder="2026"
+                            value={srcAno}
+                            onChange={(e) => setSrcAno(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Tamanho Simulado</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 2.5 MB"
+                            value={srcSize}
+                            onChange={(e) => setSrcSize(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                      >
+                        {isLoading ? 'Cadastrando...' : 'Salvar Material de Estudo'}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3 pl-4">ID</th>
+                          <th className="p-3">Título</th>
+                          <th className="p-3">Tipo</th>
+                          <th className="p-3">Banca</th>
+                          <th className="p-3">Matéria</th>
+                          <th className="p-3 text-right pr-4">Ano (Tamanho)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sources.map((s) => (
+                          <tr key={s.id} className="border-b border-slate-700/60 hover:bg-slate-800/30">
+                            <td className="p-3 pl-4 font-mono font-bold text-slate-500">{s.id}</td>
+                            <td className="p-3 font-bold text-slate-200">{s.titulo}</td>
+                            <td className="p-3">
+                              <span className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                {s.tipo}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-300 font-semibold">{s.banca}</td>
+                            <td className="p-3 text-slate-400">{s.materia}</td>
+                            <td className="p-3 text-right pr-4 text-slate-500 font-mono">
+                              {s.ano} ({s.tamanho})
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: BANCO DE QUESTÕES */}
+              {contentTab === 'questoes' && (
+                <div className="space-y-6 w-full text-left">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Banco de Questões</h3>
+                      <p className="text-xs text-slate-400">Cadastre e gerencie as questões de simulados e provas anteriores no JPSchool.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowAddQuestion(!showAddQuestion)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10 shrink-0"
+                    >
+                      {showAddQuestion ? 'Cancelar' : 'Cadastrar Questão Inédita'}
+                    </button>
+                  </div>
+
+                  {showAddQuestion && (
+                    <form onSubmit={handleCreateQuestion} className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4 max-w-xl animate-in fade-in slide-in-from-top-2">
+                      <h4 className="text-sm font-bold text-white">Nova Questão Inédita</h4>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Enunciado da Questão</label>
+                        <textarea
+                          required
+                          rows={3}
+                          placeholder="Ex: Conforme preceitua o Estatuto do Magistério Público Estadual de SC..."
+                          value={qEnunciado}
+                          onChange={(e) => setQEnunciado(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Matéria/Disciplina</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Legislação SC"
+                            value={qMateria}
+                            onChange={(e) => setQMateria(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Assunto/Tema</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Estágio Probatório"
+                            value={qAssunto}
+                            onChange={(e) => setQAssunto(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-400">Alternativas (A a E)</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Alternativa A (Correta se Gabarito for A)"
+                          value={qAltA}
+                          onChange={(e) => setQAltA(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Alternativa B"
+                          value={qAltB}
+                          onChange={(e) => setQAltB(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alternativa C"
+                          value={qAltC}
+                          onChange={(e) => setQAltC(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alternativa D"
+                          value={qAltD}
+                          onChange={(e) => setQAltD(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alternativa E"
+                          value={qAltE}
+                          onChange={(e) => setQAltE(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Gabarito (Alternativa Correta)</label>
+                        <select
+                          value={qGabarito}
+                          onChange={(e) => setQGabarito(Number(e.target.value))}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value={0}>Alternativa A</option>
+                          <option value={1}>Alternativa B</option>
+                          <option value={2}>Alternativa C</option>
+                          <option value={3}>Alternativa D</option>
+                          <option value={4}>Alternativa E</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Comentário / Resolução</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Fundamentação teórica ou legal do gabarito..."
+                          value={qComentario}
+                          onChange={(e) => setQComentario(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                      >
+                        {isLoading ? 'Salvando...' : 'Salvar Questão Inédita'}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3 pl-4">ID</th>
+                          <th className="p-3">Banca / Ano</th>
+                          <th className="p-3">Matéria / Assunto</th>
+                          <th className="p-3">Enunciado</th>
+                          <th className="p-3 text-center">Gabarito</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {questions.map((q) => (
+                          <tr key={q.id} className="border-b border-slate-700/60 hover:bg-slate-800/30">
+                            <td className="p-3 pl-4 font-mono font-bold text-slate-500">{q.id}</td>
+                            <td className="p-3">
+                              <span className="font-bold text-slate-200 block">{q.banca}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">{q.ano}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className="text-slate-300 font-semibold block">{q.materia}</span>
+                              <span className="text-[11px] text-slate-400 font-mono">{q.assunto}</span>
+                            </td>
+                            <td className="p-3 text-slate-400 max-w-sm truncate text-[11px] font-sans" title={q.enunciado}>
+                              {q.enunciado}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className="bg-slate-900 border border-slate-700 font-mono font-bold text-emerald-400 px-2.5 py-0.5 rounded text-[10px]">
+                                {['A', 'B', 'C', 'D', 'E'][q.gabaritoIndex]}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: EDITAIS & DOCUMENTOS */}
+              {contentTab === 'editais' && (
+                <div className="space-y-6 w-full text-left">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Indexador Vetorial de RAG (Google Drive Local)</h3>
+                    <p className="text-xs text-slate-400">
+                      Indexe documentos colocados na pasta <code>/storage</code> para habilitar respostas de alta precisão baseadas em leis de Santa Catarina.
+                    </p>
+                    <div className="mt-2 bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                      <p className="font-semibold text-slate-300">💡 Instrução de Funcionamento:</p>
+                      <p>1. Salve um arquivo PDF correspondente ao material na pasta <code>storage/</code> local do seu projeto.</p>
+                      <p>2. Dica: O arquivo PDF deve conter o ID do material ou palavra do título no nome (ex: <code>Edital_021_2026.pdf</code> para o ID 1).</p>
+                      <p>3. Clique no botão de ação abaixo para extrair o texto, gerar os embeddings de RAG com o Gemini e salvá-los no Neon/banco local.</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-slate-700 bg-slate-800/80 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3 pl-4">ID</th>
+                          <th className="p-3">Documento</th>
+                          <th className="p-3">Tipo</th>
+                          <th className="p-3 text-center">Chunks no Banco</th>
+                          <th className="p-3 text-center">Status</th>
+                          <th className="p-3 text-right pr-4">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sources.map((s) => {
+                          const chunkCount = indexStatus[s.id] || 0;
+                          const isIndexed = chunkCount > 0;
+                          const isIngesting = ingesterId === s.id;
+
+                          return (
+                            <tr key={s.id} className="border-b border-slate-700/60 hover:bg-slate-800/30">
+                              <td className="p-3 pl-4 font-mono font-bold text-slate-500">{s.id}</td>
+                              <td className="p-3">
+                                <span className="font-bold text-slate-200 block">{s.titulo}</span>
+                                <span className="text-[10px] text-slate-500 font-mono">Banca: {s.banca}</span>
+                              </td>
+                              <td className="p-3 font-semibold text-slate-400 capitalize">{s.tipo}</td>
+                              <td className="p-3 text-center font-mono font-bold text-slate-300">
+                                {chunkCount}
+                              </td>
+                              <td className="p-3 text-center">
+                                {isIndexed ? (
+                                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                                    INDEXADO
+                                  </span>
+                                ) : (
+                                  <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">
+                                    PENDENTE
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right pr-4">
+                                <button
+                                  onClick={() => handleIngestRAG(s.id)}
+                                  disabled={isIngesting || isLoading}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                                    isIndexed
+                                      ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 hover:text-white text-slate-400'
+                                      : 'bg-blue-600 border-blue-500 hover:bg-blue-700 text-white'
+                                  }`}
+                                >
+                                  {isIngesting ? 'Processando RAG...' : isIndexed ? 'Reindexar PDF' : 'Indexar PDF RAG'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: RELATORIOS */}
+              {contentTab === 'relatorios' && (
+                <div className="space-y-6 w-full text-left">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Desempenho do Acervo (Métricas RAG)</h3>
+                    <p className="text-xs text-slate-400">Acompanhe estatísticas de uso de inteligência artificial e indexação vetorial.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Total de Materiais</p>
+                      <p className="text-3xl font-extrabold text-white">{sources.length}</p>
+                      <p className="text-[10px] text-slate-500">Fontes ativas no menu do aluno</p>
+                    </div>
+                    <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Questões no Banco</p>
+                      <p className="text-3xl font-extrabold text-white">{questions.length}</p>
+                      <p className="text-[10px] text-slate-500">Questões prontas no acervo geral</p>
+                    </div>
+                    <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Documentos Indexados</p>
+                      <p className="text-3xl font-extrabold text-white">
+                        {Object.values(indexStatus).filter((c) => (c as number) > 0).length} / {sources.length}
+                      </p>
+                      <p className="text-[10px] text-slate-500">Fontes integradas no RAG vetorial</p>
+                    </div>
+                    <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Total de Chunks Indexados</p>
+                      <p className="text-3xl font-extrabold text-white">
+                        {Object.values(indexStatus).reduce((a, b) => (a as number) + (b as number), 0)}
+                      </p>
+                      <p className="text-[10px] text-slate-500">Fragmentos vetoriais armazenados</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700 flex flex-col items-center justify-center text-center space-y-2 max-w-md mx-auto">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900/60 border border-slate-700 flex items-center justify-center text-emerald-400">
+                      <CheckCircle className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-200">Mapeamento Vetorial Ok</h4>
+                    <p className="text-[10px] text-slate-500 max-w-sm">
+                      O pipeline do RAG Híbrido está respondendo de forma integrada às buscas semânticas da Área do Aluno com banco local / Neon pgvector.
+                    </p>
+                  </div>
+                </div>
+              )}
+
             </div>
 
           </div>

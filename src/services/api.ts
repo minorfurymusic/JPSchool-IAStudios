@@ -17,6 +17,28 @@ export async function fetchCotas(): Promise<CotasState> {
   }
 }
 
+export async function fetchSources(): Promise<any[]> {
+  try {
+    const res = await fetch('/api/sources');
+    const data = await res.json();
+    return data.sources || [];
+  } catch (err) {
+    console.error('Error fetching sources, returning empty fallback', err);
+    return [];
+  }
+}
+
+export async function fetchQuestions(): Promise<any[]> {
+  try {
+    const res = await fetch('/api/questions');
+    const data = await res.json();
+    return data.questions || [];
+  } catch (err) {
+    console.error('Error fetching questions, returning empty fallback', err);
+    return [];
+  }
+}
+
 export async function registerDownload(): Promise<{ success: boolean; cotas?: CotasState; error?: string }> {
   try {
     const res = await fetch('/api/cotas/download', { method: 'POST' });
@@ -51,7 +73,7 @@ export async function executeEstudioFeature(params: {
     id: Date.now(),
     featureId: params.featureId,
     titulo: `Produção: ${params.featureId}`,
-    conteudo: data.resultText,
+    conteudo: data.conteudo !== undefined ? data.conteudo : data.resultText,
     trechos: data.trechos || [],
     origem: data.origem || 'oficial',
     dominiosExt: data.dominiosExt || [],
@@ -123,5 +145,42 @@ export async function fetchCampanhasCota(): Promise<any[]> {
   const res = await fetch('/api/campanhas-cota', { headers: { 'x-user-role': 'admin' } });
   const data = await res.json();
   return data.campanhas || [];
+}
+
+export async function addOfficialSource(source: { titulo: string; tipo: string; materia: string; banca: string; ano?: number; tamanho?: string }): Promise<any> {
+  const res = await fetch('/api/admin/sources', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(source),
+  });
+  return await res.json();
+}
+
+export async function addQuestion(question: { banca?: string; materia?: string; assunto?: string; enunciado: string; alternativas: string[]; gabaritoIndex: number; comentario?: string }): Promise<any> {
+  const res = await fetch('/api/admin/questions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(question),
+  });
+  return await res.json();
+}
+
+export async function fetchSourcesIndexStatus(): Promise<Record<number, number>> {
+  const res = await fetch('/api/admin/sources/status', { headers: { 'x-user-role': 'admin' } });
+  const data = await res.json();
+  return data.counts || {};
+}
+
+export async function ingestDocumentSource(sourceId: number): Promise<any> {
+  const res = await fetch('/api/admin/ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ sourceId }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro na ingestão do PDF');
+  }
+  return data;
 }
 

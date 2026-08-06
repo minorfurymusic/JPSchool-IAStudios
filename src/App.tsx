@@ -26,7 +26,7 @@ import {
 } from './data/mockDatabase';
 import { DEFAULT_SITE_CONFIG } from './data/siteConfig';
 import { User, CotasState, FeatureId, FonteEstudo, AnotacaoItem, ProducaoResultado, SiteConfig, PlanItem } from './types';
-import { fetchCotas } from './services/api';
+import { fetchCotas, fetchSources, fetchQuestions } from './services/api';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>('platform');
@@ -69,16 +69,19 @@ export function App() {
   const [cartPlan, setCartPlan] = useState<PlanItem>(siteConfig.plans[0]);
 
   // Data states (Clean reset environment)
-  const [sources, setSources] = useState<FonteEstudo[]>(OFFICIAL_SOURCES);
+  const [sources, setSources] = useState<FonteEstudo[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>('plano_estudo');
   const [cotas, setCotas] = useState<CotasState>(INITIAL_COTAS);
   const [notes, setNotes] = useState<AnotacaoItem[]>(MOCK_ANNOTATIONS);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
 
-  // Sync cotas from backend on mount
+  // Sync cotas, sources, and questions from backend on mount/view change
   useEffect(() => {
     fetchCotas().then((c) => setCotas(c));
-  }, []);
+    fetchSources().then((s) => setSources(s));
+    fetchQuestions().then((q) => setQuestions(q));
+  }, [currentView]);
 
   // Login handler
   const handleLoginWithUser = (user: User) => {
@@ -229,7 +232,7 @@ export function App() {
                 fetchCotas().then((c) => setCotas(c));
               }}
               onSaveNote={handleSaveNote}
-              allQuestions={MOCK_QUESTIONS}
+              allQuestions={questions}
             />
 
             {/* Right Column: Studio 4-Group Feature Catalog */}
