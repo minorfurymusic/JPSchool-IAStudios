@@ -16,8 +16,6 @@ import { Workspace } from './components/LearnerPlatform/Workspace';
 import { NotesDrawer } from './components/LearnerPlatform/NotesDrawer';
 
 import {
-  TEST_USERS,
-  CURRENT_USER,
   INITIAL_COTAS,
   OFFICIAL_SOURCES,
   FEATURES,
@@ -26,53 +24,46 @@ import {
 } from './data/mockDatabase';
 import { DEFAULT_SITE_CONFIG } from './data/siteConfig';
 import { User, CotasState, FeatureId, FonteEstudo, AnotacaoItem, ProducaoResultado, SiteConfig, PlanItem } from './types';
-import { fetchCotas, fetchSources, fetchQuestions, fetchCursosMaterias } from './services/api';
+import { fetchCotas, fetchSources, fetchQuestions, fetchCursosMaterias, login, logout, fetchCurrentUser } from './services/api';
 
 export function App() {
-  const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>(() => {
-    try {
-      const saved = localStorage.getItem('jpschool_current_view');
-      if (saved) return saved as any;
-    } catch (e) {}
-    return 'admin_backstage';
-  });
-
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    try {
-      const saved = localStorage.getItem('jpschool_current_user');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return TEST_USERS[0]; // Default to Super Admin
-  });
-
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('jpschool_is_logged_in');
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return true;
-  });
+  // Sem sessão válida = sempre começa no site de vendas, deslogado.
+  const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>('sales');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const [isRetaFinal, setIsRetaFinal] = useState(true);
   const [selectedTurmaName, setSelectedTurmaName] = useState('SED ACT 2026');
 
+  // Restaura a sessão (cookie httpOnly) ao carregar a página, se houver uma válida.
   useEffect(() => {
-    try {
-      localStorage.setItem('jpschool_current_view', currentView);
-    } catch (e) {}
-  }, [currentView]);
+    fetchCurrentUser().then((user) => {
+      if (user) {
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+        if (user.role === 'super_admin' || user.role === 'admin') {
+          setCurrentView('admin_backstage');
+        } else if (user.role === 'ti') {
+          setCurrentView('admin_ti');
+        } else {
+          setCurrentView('platform');
+        }
+      }
+      setIsCheckingSession(false);
+    });
+  }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('jpschool_current_user', JSON.stringify(currentUser));
-    } catch (e) {}
-  }, [currentUser]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(isLoggedIn));
-    } catch (e) {}
-  }, [isLoggedIn]);
+  const routeByRole = (role: string) => {
+    if (role === 'super_admin' || role === 'admin') {
+      setCurrentView('admin_backstage');
+    } else if (role === 'ti') {
+      setCurrentView('admin_ti');
+    } else {
+      setCurrentView('platform');
+    }
+  };
 
   // Site Configuration state editable via Admin Panel with localStorage persistence
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
@@ -127,6 +118,7 @@ export function App() {
 
   // Sync cotas, sources, courses/materias, and questions from backend on mount/view change
   useEffect(() => {
+    if (!isLoggedIn) return;
     fetchCotas().then((c) => setCotas(c));
     fetchSources().then((s) => {
       setSources(s);
@@ -148,25 +140,32 @@ export function App() {
       }
     });
     fetchQuestions().then((q) => setQuestions(q));
-  }, [currentView, selectedTurmaName]);
+  }, [currentView, selectedTurmaName, isLoggedIn]);
 
-  // Login handler
-  const handleLoginWithUser = (user: User) => {
-    setCurrentUser(user);
-    setIsLoggedIn(true);
-    try {
-      localStorage.setItem('jpschool_current_user', JSON.stringify(user));
-      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(true));
-    } catch (e) {}
+  // Login handler — sempre passa pelo backend, nunca autentica localmente.
+  const handleLogin = async (usuario: string, senha: string) => {
+    const result = await login(usuario, senha);
+    if (result.success && result.user) {
+      setCurrentUser(result.user);
+      setIsLoggedIn(true);
+    }
+    return result;
   };
 
   const handleLogout = () => {
+    logout();
     setIsLoggedIn(false);
+    setCurrentUser(null);
     setCurrentView('sales');
-    try {
-      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(false));
-      localStorage.setItem('jpschool_current_view', 'sales');
-    } catch (e) {}
+  };
+
+  // Abre o modal de login; se já autorizado para a view pedida, navega direto.
+  const requireLogin = (onAuthorized?: () => void) => {
+    if (isLoggedIn) {
+      onAuthorized?.();
+    } else {
+      setShowLoginModal(true);
+    }
   };
 
   // Handlers for sources
@@ -206,6 +205,14 @@ export function App() {
 
   const activeFeature = FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
 
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-semibold">
+        Carregando...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased selection:bg-blue-100 selection:text-[#1877F2]">
       
@@ -216,7 +223,10 @@ export function App() {
           onViewChange={setCurrentView}
           isLoggedIn={isLoggedIn}
           onLogout={handleLogout}
-          onLoginWithUser={handleLoginWithUser}
+          onLogin={handleLogin}
+          showLoginModal={showLoginModal}
+          onOpenLoginModal={() => setShowLoginModal(true)}
+          onCloseLoginModal={() => setShowLoginModal(false)}
           cartCount={1}
           onOpenCart={() => setIsCartOpen(true)}
           companyName={siteConfig.companyName}
@@ -237,12 +247,7 @@ export function App() {
               heroSubtitle={siteConfig.heroSubtitle}
               ctaButtonText={siteConfig.ctaButtonText}
               slides={siteConfig.carouselSlides}
-              onStartLearner={() => {
-                if (!isLoggedIn) {
-                  handleLoginWithUser(TEST_USERS[2]); // jeanrsl
-                }
-                setCurrentView('platform');
-              }}
+              onStartLearner={() => requireLogin(() => setCurrentView('platform'))}
               onSelectPlanClick={() => {
                 const el = document.getElementById('planos');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -258,10 +263,7 @@ export function App() {
             <Pricing
               plans={siteConfig.plans}
               selectedTurmaName={selectedTurmaName}
-              onEnrollSuccess={() => {
-                handleLoginWithUser(TEST_USERS[2]); // jeanrsl
-                setCurrentView('platform');
-              }}
+              onEnrollSuccess={() => requireLogin(() => setCurrentView('platform'))}
             />
           )}
 
@@ -272,13 +274,7 @@ export function App() {
           <Footer
             companyName={siteConfig.companyName}
             contactEmail={siteConfig.contactEmail}
-            onOpenAdmin={() => {
-              if (currentUser.role === 'admin') {
-                setCurrentView('admin_backstage');
-              } else {
-                setCurrentView('admin_ti');
-              }
-            }}
+            onOpenAdmin={() => requireLogin(() => routeByRole(currentUser?.role || 'cliente'))}
           />
         </div>
       )}
@@ -332,7 +328,7 @@ export function App() {
       )}
 
       {/* VIEW 3: ADMIN BACKSTAGE (GESTAO DE CONTEUDO PARA ADMIN) */}
-      {currentView === 'admin_backstage' && (
+      {currentView === 'admin_backstage' && currentUser && (
         <AdminBackstage
           user={currentUser}
           onLogout={handleLogout}
@@ -361,10 +357,7 @@ export function App() {
         selectedPlan={cartPlan}
         onSelectPlan={(plan) => setCartPlan(plan)}
         allPlans={siteConfig.plans}
-        onCheckout={() => {
-          handleLoginWithUser(TEST_USERS[3]); // jeanrsl
-          setCurrentView('platform');
-        }}
+        onCheckout={() => requireLogin(() => setCurrentView('platform'))}
       />
 
     </div>

@@ -210,6 +210,7 @@ export interface ProducaoResultado {
   featureId: FeatureId;
   titulo: string;
   conteudo: any; // Raw or structured content depending on feature
+  resultText?: string; // Texto plano sempre disponível (usado por download/TTS)
   trechos: TrechoOrigem[];
   origem: 'oficial' | 'oficial+externo' | 'somente_externo';
   dominiosExt?: string[];

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { User, CotasState } from '../types';
-import { TEST_USERS } from '../data/mockDatabase';
 import {
   GraduationCap,
   UserCheck,
@@ -25,11 +24,14 @@ interface NavbarProps {
   onViewChange: (view: 'sales' | 'platform' | 'admin_backstage' | 'admin_ti') => void;
   isLoggedIn: boolean;
   onLogout: () => void;
-  onLoginWithUser: (user: User) => void;
+  onLogin: (usuario: string, senha: string) => Promise<{ success: boolean; user?: User; error?: string }>;
+  showLoginModal: boolean;
+  onOpenLoginModal: () => void;
+  onCloseLoginModal: () => void;
   cartCount: number;
   onOpenCart: () => void;
   companyName?: string;
-  user?: User;
+  user?: User | null;
   cotas?: CotasState;
   isRetaFinal?: boolean;
   onOpenNotes?: () => void;
@@ -40,7 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onViewChange,
   isLoggedIn,
   onLogout,
-  onLoginWithUser,
+  onLogin,
+  showLoginModal,
+  onOpenLoginModal,
+  onCloseLoginModal,
   cartCount = 1,
   onOpenCart,
   companyName = 'JPSchool',
@@ -49,49 +54,46 @@ export const Navbar: React.FC<NavbarProps> = ({
   isRetaFinal = true,
   onOpenNotes,
 }) => {
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [inputUsuario, setInputUsuario] = useState('');
   const [inputSenha, setInputSenha] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-
-    const foundUser = TEST_USERS.find(
-      (u) =>
-        u.usuario.toLowerCase() === inputUsuario.trim().toLowerCase() &&
-        u.senha === inputSenha.trim()
-    );
-
-    if (foundUser) {
-      onLoginWithUser(foundUser);
-      setShowLoginModal(false);
-      setInputUsuario('');
-      setInputSenha('');
-
-      if (foundUser.role === 'admin') {
-        onViewChange('admin_backstage');
-      } else if (foundUser.role === 'ti') {
-        onViewChange('admin_ti');
-      } else {
-        onViewChange('platform');
-      }
-    } else {
-      setLoginError('Usuário ou senha incorretos. Utilize as credenciais de teste.');
-    }
-  };
-
-  const handleQuickLogin = (testUser: User) => {
-    onLoginWithUser(testUser);
-    setShowLoginModal(false);
-    if (testUser.role === 'admin') {
+  const routeByRole = (role: string) => {
+    if (role === 'super_admin' || role === 'admin') {
       onViewChange('admin_backstage');
-    } else if (testUser.role === 'ti') {
+    } else if (role === 'ti') {
       onViewChange('admin_ti');
     } else {
       onViewChange('platform');
     }
+  };
+
+  const submitLogin = async (usuario: string, senha: string) => {
+    setIsSubmitting(true);
+    setLoginError('');
+    const result = await onLogin(usuario, senha);
+    setIsSubmitting(false);
+
+    if (result.success && result.user) {
+      setInputUsuario('');
+      setInputSenha('');
+      onCloseLoginModal();
+      routeByRole(result.user.role);
+    } else {
+      setLoginError(result.error || 'Usuário ou senha incorretos.');
+    }
+  };
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitLogin(inputUsuario.trim(), inputSenha.trim());
+  };
+
+  const handleQuickFill = (usuario: string, senha: string) => {
+    setInputUsuario(usuario);
+    setInputSenha(senha);
+    submitLogin(usuario, senha);
   };
 
   // Helper for rendering quota indicator dots
@@ -126,7 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[60px] py-2 flex items-center justify-between gap-3">
-          
+
           {/* Brand Logo */}
           <div
             className="flex items-center space-x-3 cursor-pointer shrink-0"
@@ -148,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* MIDDLE BLOCK: Student Info (Only in Platform view) */}
           {currentView === 'platform' && user && (
             <div className="flex-1 flex flex-wrap items-center justify-center gap-2 py-0.5 px-1">
-              
+
               {/* User Name + Short Course */}
               <div className="flex items-center space-x-2 shrink-0">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1877F2] to-slate-800 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
@@ -186,6 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center space-x-0.5 mt-0.5">
                       {renderDots(cotas.producoesUsadas, cotas.producoesMax)}
                     </div>
+                    <div className="text-[9px] text-slate-400 font-semibold mt-0.5">Renova às {cotas.resetTime || '00:00'}</div>
                   </div>
                 </div>
               )}
@@ -202,6 +205,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center space-x-0.5 mt-0.5">
                       {renderDots(cotas.downloadsUsados, cotas.downloadsMax)}
                     </div>
+                    <div className="text-[9px] text-slate-400 font-semibold mt-0.5">Renova às {cotas.resetTime || '00:00'}</div>
                   </div>
                 </div>
               )}
@@ -211,11 +215,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Buttons */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-            
+
             {/* View Switching shortcuts when logged in */}
             {isLoggedIn && user && (
               <div className="flex items-center space-x-1.5">
-                {user.role === 'admin' && currentView !== 'admin_backstage' && (
+                {(user.role === 'admin' || user.role === 'super_admin') && currentView !== 'admin_backstage' && (
                   <button
                     onClick={() => onViewChange('admin_backstage')}
                     className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1877F2] rounded-xl text-xs font-bold border border-blue-200 transition-all flex items-center space-x-1"
@@ -288,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             ) : (
               <button
-                onClick={() => setShowLoginModal(true)}
+                onClick={onOpenLoginModal}
                 className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-blue-500/20 flex items-center space-x-1.5"
               >
                 <UserCheck className="w-3.5 h-3.5" />
@@ -302,13 +306,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Login Modal for Admin, TI, and Cliente */}
+      {/* Login Modal for Admin and Cliente */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-200 space-y-5">
-            
+
             <button
-              onClick={() => setShowLoginModal(false)}
+              onClick={onCloseLoginModal}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
             >
               <X className="w-5 h-5" />
@@ -358,12 +362,34 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3 bg-[#1877F2] hover:bg-blue-600 text-white font-bold rounded-2xl text-xs transition-all shadow-md flex items-center justify-center space-x-2"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-[#1877F2] hover:bg-blue-600 disabled:bg-slate-300 text-white font-bold rounded-2xl text-xs transition-all shadow-md flex items-center justify-center space-x-2"
               >
-                <span>Entrar no Sistema</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>{isSubmitting ? 'Entrando...' : 'Entrar no Sistema'}</span>
+                {!isSubmitting && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
+
+            {/* Quick-fill for the 2 test accounts (still goes through real login) */}
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contas de teste</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill('admin', '123456')}
+                  className="flex-1 px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 transition-all"
+                >
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill('jeanpierre', '123456')}
+                  className="flex-1 px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 transition-all"
+                >
+                  Jean Pierre (aluno)
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>

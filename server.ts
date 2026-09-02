@@ -25,6 +25,8 @@ import {
 import pg from 'pg';
 const { Client } = pg;
 
+import { randomUUID } from 'crypto';
+
 let pdfParser: any = null;
 async function getPdfParser() {
   if (!pdfParser) {
@@ -69,26 +71,95 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-// In-memory quota store for session
-let userQuotas = {
-  producoesUsadas: 2,
-  producoesMax: 5,
-  downloadsUsados: 1,
-  downloadsMax: 5,
-  data: new Date().toISOString().split('T')[0],
-};
+// --- Sessões de autenticação (cookie httpOnly, em memória) ---
+const SESSION_COOKIE = 'jpschool_session';
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
 
-function resetQuotaIfNewDay() {
+interface SessionData {
+  userId: number;
+  usuario: string;
+  nome: string;
+  role: string;
+  expiresAt: number;
+}
+
+const sessions = new Map<string, SessionData>();
+
+function parseCookies(req: express.Request): Record<string, string> {
+  const header = req.headers.cookie;
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  header.split(';').forEach((pair) => {
+    const idx = pair.indexOf('=');
+    if (idx === -1) return;
+    const key = pair.slice(0, idx).trim();
+    const val = pair.slice(idx + 1).trim();
+    if (key) out[key] = decodeURIComponent(val);
+  });
+  return out;
+}
+
+function createSession(user: { id: number; usuario: string; nome: string; role: string }): string {
+  const token = randomUUID();
+  sessions.set(token, {
+    userId: user.id,
+    usuario: user.usuario,
+    nome: user.nome,
+    role: user.role,
+    expiresAt: Date.now() + SESSION_TTL_MS,
+  });
+  return token;
+}
+
+function getSession(req: express.Request): SessionData | null {
+  const token = parseCookies(req)[SESSION_COOKIE];
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (session.expiresAt < Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  return session;
+}
+
+function setSessionCookie(res: express.Response, token: string) {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.setHeader(
+    'Set-Cookie',
+    `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; SameSite=Lax${isProd ? '; Secure' : ''}`
+  );
+}
+
+function clearSessionCookie(res: express.Response) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+}
+
+// --- Cotas diárias por usuário (em memória) ---
+interface QuotaEntry {
+  producoesUsadas: number;
+  producoesMax: number;
+  downloadsUsados: number;
+  downloadsMax: number;
+  data: string;
+}
+
+const quotasByUser = new Map<number, QuotaEntry>();
+
+function getQuotaForUser(userId: number): QuotaEntry {
   const today = new Date().toISOString().split('T')[0];
-  if (userQuotas.data !== today) {
-    userQuotas = {
+  let entry = quotasByUser.get(userId);
+  if (!entry || entry.data !== today) {
+    entry = {
       producoesUsadas: 0,
       producoesMax: 5,
       downloadsUsados: 0,
       downloadsMax: 5,
       data: today,
     };
+    quotasByUser.set(userId, entry);
   }
+  return entry;
 }
 
 // Persistent Storage for System Configs (Drive Folder ID, Gemini Key, Service Account)
@@ -624,11 +695,7 @@ app.get('/api/questions', (req, res) => {
   res.json({ questions: MOCK_QUESTIONS });
 });
 
-app.get('/api/configuracoes', (req, res) => {
-  res.json({ configuracoes: MOCK_CONFIGURACOES });
-});
-
-app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']), (req: any, res) => {
   const { chave, valor } = req.body;
   if (!chave) {
     return res.status(400).json({ error: 'Chave é obrigatória' });
@@ -641,7 +708,7 @@ app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']
       valor: valor || '',
       descricao: `Configuração do sistema para ${cleanChave}`,
       categoria: 'sistema' as any,
-      atualizadoPor: (req.headers['x-user-role'] as string) || 'admin',
+      atualizadoPor: req.user?.usuario || 'admin',
       atualizadoEm: new Date().toISOString()
     };
     MOCK_CONFIGURACOES.push(newCfg);
@@ -650,7 +717,7 @@ app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']
     MOCK_CONFIGURACOES[index] = {
       ...MOCK_CONFIGURACOES[index],
       valor: valor !== undefined ? valor : MOCK_CONFIGURACOES[index].valor,
-      atualizadoPor: (req.headers['x-user-role'] as string) || 'admin',
+      atualizadoPor: req.user?.usuario || 'admin',
       atualizadoEm: new Date().toISOString()
     };
   }
@@ -666,20 +733,20 @@ app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']
   res.json({ success: true, config: MOCK_CONFIGURACOES[index], configuracoes: MOCK_CONFIGURACOES });
 });
 
-app.get('/api/cotas', (req, res) => {
-  resetQuotaIfNewDay();
-  res.json(userQuotas);
+app.get('/api/cotas', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req: any, res) => {
+  const quota = getQuotaForUser(req.user.userId);
+  res.json(quota);
 });
 
-app.post('/api/cotas/download', (req, res) => {
-  resetQuotaIfNewDay();
-  if (userQuotas.downloadsUsados >= userQuotas.downloadsMax) {
+app.post('/api/cotas/download', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req: any, res) => {
+  const quota = getQuotaForUser(req.user.userId);
+  if (quota.downloadsUsados >= quota.downloadsMax) {
     return res.status(429).json({
       error: 'Cota diária de downloads esgotada (5/5). Tente novamente amanhã às 00:00.',
     });
   }
-  userQuotas.downloadsUsados += 1;
-  res.json({ success: true, cotas: userQuotas });
+  quota.downloadsUsados += 1;
+  res.json({ success: true, cotas: quota });
 });
 
 // Admin Document Ingest Route (Google Drive Local)
@@ -732,12 +799,12 @@ app.post('/api/admin/ingest', requireAuth(['super_admin', 'admin', 'ti']), async
 });
 
 // Main Studio Execution Endpoint (Vector RAG + Hybrid Questions)
-app.post('/api/estudio/executar', async (req: any, res: any) => {
+app.post('/api/estudio/executar', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), async (req: any, res: any) => {
   try {
-    resetQuotaIfNewDay();
+    const quota = getQuotaForUser(req.user.userId);
     const { featureId, userPrompt, selectedSourceIds, isRetaFinal } = req.body;
 
-    if (userQuotas.producoesUsadas >= userQuotas.producoesMax) {
+    if (quota.producoesUsadas >= quota.producoesMax) {
       return res.status(429).json({
         error: 'Cota diária de produções esgotada (5/5). Você atingiu o limite diário anti-pirataria do plano aluno. Renova às 00:00.',
       });
@@ -938,7 +1005,7 @@ MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
       }
     }
 
-    userQuotas.producoesUsadas += 1;
+    quota.producoesUsadas += 1;
     const structuredConteudo = isQuestionsFeature
       ? { questions: questionsList, text: resultText }
       : formatStructuredContent(featureId, resultText, userPrompt || '', sourcesSummary);
@@ -949,7 +1016,7 @@ MODO ATIVO: ${isRetaFinal ? 'RETA FINAL (≤ 30 dias para a prova)' : 'Normal'}
       resultText: isQuestionsFeature ? resultText : (structuredConteudo.text || resultText),
       conteudo: structuredConteudo,
       origem: origemType,
-      cotasAtualizadas: userQuotas,
+      cotasAtualizadas: quota,
       trechos: [
         {
           texto: 'Conforme preceitua a Lei Complementar N° 688/SC e a LDB 9.394/96...',
@@ -1457,49 +1524,28 @@ O conteúdo solicitado foi gerado com sucesso respeitando rigorosamente a litera
 }
 
 // Middleware de Autenticação e Matriz de Permissões
+// A identidade vem exclusivamente da sessão de servidor (cookie httpOnly criado no login) —
+// nunca de um header que o próprio cliente poderia forjar.
 function requireAuth(allowedRoles?: string[]) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization || (req.headers['x-user-role'] as string);
+    const session = getSession(req);
 
-    if (!authHeader) {
+    if (!session) {
       return res.status(401).json({
-        error: 'Acesso não autorizado. Autenticação obrigatória (token/sessão não informado).',
+        error: 'Acesso não autorizado. Faça login para continuar.',
         code: 'UNAUTHENTICATED',
       });
     }
 
-    let role: string | undefined;
-
-    if (authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7).trim().toLowerCase();
-      const matchedUser = TEST_USERS.find(
-        (u) => u.usuario.toLowerCase() === token || u.role === token
-      );
-      if (matchedUser) {
-        role = matchedUser.role;
-      } else {
-        role = token;
-      }
-    } else {
-      role = authHeader.toLowerCase();
-    }
-
-    const validRoles = ['super_admin', 'admin', 'ti', 'cliente'];
-    if (!role || !validRoles.includes(role)) {
-      return res.status(401).json({
-        error: 'Acesso não autorizado. Sessão ou token inválido.',
-        code: 'INVALID_SESSION',
-      });
-    }
-
-    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
       return res.status(403).json({
-        error: `Acesso negado. O papel '${role}' não possui permissão para acessar este recurso.`,
+        error: `Acesso negado. O papel '${session.role}' não possui permissão para acessar este recurso.`,
         code: 'FORBIDDEN',
       });
     }
 
-    (req as any).userRole = role;
+    (req as any).user = session;
+    (req as any).userRole = session.role;
     next();
   };
 }
@@ -1545,30 +1591,21 @@ app.get('/api/logs-auditoria', requireAuth(['super_admin', 'admin', 'ti']), (req
   res.json({ logs: MOCK_LOGS_AUDITORIA });
 });
 
-app.get('/api/configuracoes', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
-  res.json({ configuracoes: MOCK_CONFIGURACOES });
-});
+// Segredos (chaves de API, credenciais) nunca voltam em texto puro pela API —
+// só os últimos 4 caracteres, pra confirmar que estão configurados sem expor o valor.
+function maskSensitiveConfig(configs: typeof MOCK_CONFIGURACOES) {
+  // Só mascara credenciais reais (chaves de API, tokens, segredos) — não políticas
+  // numéricas da categoria "seguranca" como tentativas máximas ou tamanho mínimo de senha.
+  return configs.map((c) => {
+    const isSensitive = /API_KEY|SERVICE_ACCOUNT|SECRET|TOKEN/i.test(c.chave);
+    if (!isSensitive || !c.valor) return c;
+    const visible = c.valor.length > 4 ? c.valor.slice(-4) : '';
+    return { ...c, valor: `••••••••${visible}` };
+  });
+}
 
-app.post('/api/configuracoes/update', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
-  const { chave, valor } = req.body;
-  const config = MOCK_CONFIGURACOES.find(c => c.chave === chave);
-  if (config) {
-    const oldVal = config.valor;
-    config.valor = valor;
-    config.atualizadoEm = new Date().toISOString();
-    config.atualizadoPor = req.headers['x-user-role'] as string || 'admin';
-    MOCK_LOGS_AUDITORIA.push({
-      id: MOCK_LOGS_AUDITORIA.length + 1,
-      acao: 'ALTERACAO_CONFIGURACAO',
-      detalhes: `Configuração ${chave} alterada de ${oldVal} para ${valor}`,
-      dadosAntes: { valor: oldVal },
-      dadosDepois: { valor },
-      criadoEm: new Date().toISOString(),
-    });
-    res.json({ success: true, config });
-  } else {
-    res.status(404).json({ error: 'Configuração não encontrada' });
-  }
+app.get('/api/configuracoes', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  res.json({ configuracoes: maskSensitiveConfig(MOCK_CONFIGURACOES) });
 });
 
 // Endpoint: AI Auto-Subcategory Generator
@@ -1896,7 +1933,7 @@ app.post('/api/admin/codigos-acesso', requireAuth(['super_admin', 'admin', 'ti']
     usado: false,
     criadoEm: new Date().toISOString(),
     cursoId: cursoId ? Number(cursoId) : undefined,
-    criadoPor: req.headers['x-user-role'] as string || 'admin'
+    criadoPor: (req as any).user?.usuario || 'admin'
   };
   MOCK_CODIGOS_ACESSO.push(newCodigo);
   MOCK_LOGS_AUDITORIA.push({
@@ -2053,7 +2090,7 @@ app.post('/api/admin/configuracoes', requireAuth(['super_admin', 'admin', 'ti'])
     valor,
     descricao: descricao || '',
     categoria: categoria as any,
-    atualizadoPor: req.headers['x-user-role'] as string || 'admin',
+    atualizadoPor: (req as any).user?.usuario || 'admin',
     atualizadoEm: new Date().toISOString()
   };
   MOCK_CONFIGURACOES.push(newConfig);
@@ -2079,7 +2116,7 @@ app.put('/api/admin/configuracoes/:chave', requireAuth(['super_admin', 'admin', 
       valor: valor || '',
       descricao: `Configuração do sistema para ${chave}`,
       categoria: 'sistema' as any,
-      atualizadoPor: (req.headers['x-user-role'] as string) || 'admin',
+      atualizadoPor: (req as any).user?.usuario || 'admin',
       atualizadoEm: new Date().toISOString()
     };
     MOCK_CONFIGURACOES.push(newCfg);
@@ -2088,7 +2125,7 @@ app.put('/api/admin/configuracoes/:chave', requireAuth(['super_admin', 'admin', 
     MOCK_CONFIGURACOES[index] = {
       ...MOCK_CONFIGURACOES[index],
       valor: valor !== undefined ? valor : MOCK_CONFIGURACOES[index].valor,
-      atualizadoPor: (req.headers['x-user-role'] as string) || 'admin',
+      atualizadoPor: (req as any).user?.usuario || 'admin',
       atualizadoEm: new Date().toISOString()
     };
   }
@@ -3091,8 +3128,17 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
 
-  // 3. Success -> reset attempts counter and add audit log
+  // 3. Success -> create real server-side session, reset attempts counter and add audit log
   resetarTentativasLogin(usuario);
+
+  const token = createSession({
+    id: userMatch.id,
+    usuario: userMatch.usuario,
+    nome: userMatch.nome,
+    role: userMatch.role,
+  });
+  setSessionCookie(res, token);
+
   MOCK_LOGS_AUDITORIA.push({
     id: MOCK_LOGS_AUDITORIA.length + 1,
     usuarioId: userMatch.id,
@@ -3106,7 +3152,28 @@ app.post('/api/auth/login', (req, res) => {
     criadoEm: new Date().toISOString(),
   });
 
-  res.json({ success: true, user: userMatch });
+  const { senha: _senha, ...userSemSenha } = userMatch;
+  res.json({ success: true, user: userSemSenha });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = parseCookies(req)[SESSION_COOKIE];
+  if (token) sessions.delete(token);
+  clearSessionCookie(res);
+  res.json({ success: true });
+});
+
+app.get('/api/auth/me', (req, res) => {
+  const session = getSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'Sem sessão ativa' });
+  }
+  const userMatch = TEST_USERS.find((u) => u.id === session.userId);
+  if (!userMatch) {
+    return res.status(401).json({ error: 'Usuário da sessão não encontrado' });
+  }
+  const { senha: _senha, ...userSemSenha } = userMatch;
+  res.json({ user: userSemSenha });
 });
 
 // Start Server Boot

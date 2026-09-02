@@ -130,13 +130,24 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
           <BookOpen className="w-4 h-4 text-[#1877F2]" />
           <h2 className="font-extrabold text-sm">Materiais de Estudo</h2>
         </div>
-        
+
         <button
           onClick={onSelectAll}
           className="text-[11px] font-bold text-[#1877F2] hover:underline flex items-center space-x-1"
         >
           <span>{allSelected ? 'Desmarcar Todos' : 'Marcar Todos'}</span>
         </button>
+      </div>
+
+      {/* Global selection counter */}
+      <div
+        className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border text-center ${
+          selectedCount === 0
+            ? 'bg-amber-50 border-amber-200 text-amber-800'
+            : 'bg-blue-50 border-blue-200 text-[#1877F2]'
+        }`}
+      >
+        {selectedCount} de {sources.length} materiais selecionados
       </div>
 
       {/* Simple Search Input */}

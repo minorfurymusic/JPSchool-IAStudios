@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { EstudioFeature, FeatureId, FonteEstudo, ProducaoResultado, Questao, Flashcard, SlideItem } from '../../types';
 import { executeEstudioFeature, registerDownload } from '../../services/api';
 import {
@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Table as TableIcon,
   Video,
+  CalendarCheck,
 } from 'lucide-react';
 
 interface WorkspaceProps {
@@ -157,12 +158,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   // Checklist Items State
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>({
-    'c1': true,
+    'c1': false,
     'c2': false,
-    'c3': true,
+    'c3': false,
     'c4': false,
     'c5': false,
   });
+
+  const toggleChecklistItem = (id: string) => {
+    setChecklistState((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Voice recognition (Web Speech API)
+  const recognitionRef = useRef<any>(null);
+
+  // Selected sources counter (visível na hora de gerar, ver item de UX sobre fontes)
+  const selectedSourcesCount = selectedSources.filter((s) => s.selecionada).length;
+
+  // Extrai sempre o texto plano do resultado (nunca o objeto), usado por download e TTS
+  const getPlainText = (r: ProducaoResultado | null): string => {
+    if (!r) return '';
+    if (typeof r.conteudo === 'string') return r.conteudo;
+    return r.conteudo?.text || r.conteudo?.audioScript || r.resultText || '';
+  };
 
   // Handle Feature Execution
   const handleExecute = async () => {
@@ -203,18 +221,40 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     }
   };
 
-  // Voice recording simulation
+  // Voice recording via Web Speech API (transcrição real do navegador)
   const handleToggleVoice = () => {
     if (isRecording) {
-      setIsRecording(false);
-      setUserPrompt((prev) => prev + (prev ? ' ' : '') + 'Qual é a idade máxima e prazos da LC 688/SC no estágio probatório?');
-    } else {
-      setIsRecording(true);
-      setTimeout(() => {
-        setIsRecording(false);
-        setUserPrompt((prev) => prev + (prev ? ' ' : '') + 'Quais são as principais pegadinhas da FEPESE sobre LDB e Conselho Tutelar?');
-      }, 3000);
+      recognitionRef.current?.stop();
+      return;
     }
+
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      setErrorMsg('Reconhecimento de voz não é suportado neste navegador. Tente usar o Chrome.');
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = 'pt-BR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || '';
+      if (transcript) {
+        setUserPrompt((prev) => prev + (prev ? ' ' : '') + transcript);
+      }
+    };
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+    recognition.start();
   };
 
   // Photo upload simulation
@@ -230,22 +270,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   const handleDownloadPDF = async () => {
     const res = await registerDownload();
     if (!res.success) {
-      alert(res.error);
+      setErrorMsg(res.error || 'Não foi possível registrar o download.');
       return;
     }
     onQuotaUsed();
 
-    // Trigger fake browser download file
+    const textContent = getPlainText(lastResultado) || 'Material de Estudo JPSchool';
     const element = document.createElement('a');
-    const file = new Blob([lastResultado?.conteudo || 'Material de Estudo JPSchool'], { type: 'text/plain' });
+    const file = new Blob([textContent], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
     element.download = `JPSchool_${activeFeature.id}_${Date.now()}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    URL.revokeObjectURL(element.href);
   };
 
-  // Audio Speech Synthesis simulation
+  // Audio Speech Synthesis (texto -> voz do navegador)
   const handleToggleTTS = () => {
     if (isPlayingAudio) {
       window.speechSynthesis?.cancel();
@@ -253,9 +294,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     } else {
       setIsPlayingAudio(true);
       if ('speechSynthesis' in window) {
-        const textToSpeak = lastResultado?.conteudo || 'Olá, professor. Hoje vamos falar sobre o Estatuto do Magistério de Santa Catarina.';
+        const textToSpeak = getPlainText(lastResultado) || 'Olá, professor. Hoje vamos falar sobre o Estatuto do Magistério de Santa Catarina.';
         const utterance = new SpeechSynthesisUtterance(textToSpeak.slice(0, 300));
         utterance.rate = audioPlaybackRate;
+        utterance.lang = 'pt-BR';
         utterance.onend = () => setIsPlayingAudio(false);
         window.speechSynthesis.speak(utterance);
       } else {
@@ -348,7 +390,23 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
         {/* Input Bar Section */}
         <div className="pt-3 border-t border-slate-100 space-y-3">
-          
+
+          {/* Selected Sources Indicator — mostra o que está marcado antes de gerar */}
+          <div
+            className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-xl border ${
+              selectedSourcesCount === 0
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : 'bg-blue-50 border-blue-200 text-[#1877F2]'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 shrink-0" />
+            {selectedSourcesCount === 0 ? (
+              <span>Nenhum material selecionado — a resposta pode sair sem base oficial. Marque fontes em "Materiais de Estudo".</span>
+            ) : (
+              <span>{selectedSourcesCount} de {selectedSources.length} materiais selecionados como base para gerar.</span>
+            )}
+          </div>
+
           {/* Inputs for Video URL if Video Feature */}
           {activeFeature.id === 'resumo_video' && (
             <div className="flex items-center space-x-2">
@@ -708,9 +766,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               </div>
               <div className="prose prose-slate max-w-none text-xs leading-relaxed space-y-2 text-slate-700">
                 {renderFormattedTextWithBadges(
-                  lastResultado?.conteudo?.audioScript ||
-                  lastResultado?.conteudo?.text ||
-                  typeof lastResultado?.conteudo === 'string' ? lastResultado?.conteudo :
+                  getPlainText(lastResultado) ||
                   'Clique no botão "Gerar" acima para processar o roteiro de narração em áudio desta matéria.'
                 )}
               </div>
@@ -1094,16 +1150,79 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           </div>
         )}
 
+        {/* 10. CHECKLIST DE VÉSPERA (RETA FINAL) */}
+        {activeFeature.id === 'checklist_vespera' && (
+          <div className="space-y-4 max-w-2xl mx-auto">
+            {(() => {
+              const items = [
+                { id: 'c1', label: 'Revisar o Glossário da Banca e os termos mais recorrentes' },
+                { id: 'c2', label: 'Refazer o último simulado completo e revisar os erros' },
+                { id: 'c3', label: 'Reler o Radar de Pegadinhas das matérias com mais peso' },
+                { id: 'c4', label: 'Conferir local, horário e documento oficial com foto para a prova' },
+                { id: 'c5', label: 'Separar caneta, comprovante de inscrição e chegar com antecedência' },
+              ];
+              const doneCount = items.filter((i) => checklistState[i.id]).length;
+              const progress = Math.round((doneCount / items.length) * 100);
+
+              return (
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-[#2D3748]">
+                      <CalendarCheck className="w-5 h-5 text-[#C85A00]" />
+                      <h3 className="text-sm font-extrabold">Checklist de Véspera</h3>
+                    </div>
+                    <span className="text-xs font-bold text-[#C85A00] bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                      {doneCount}/{items.length} concluídos
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#C85A00] transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => toggleChecklistItem(item.id)}
+                        className={`p-3 rounded-2xl border cursor-pointer select-none transition-all flex items-start space-x-2.5 ${
+                          checklistState[item.id]
+                            ? 'bg-emerald-50 border-emerald-300'
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {checklistState[item.id] ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-slate-300 shrink-0 mt-0.5" />
+                        )}
+                        <span className={`text-xs leading-relaxed ${checklistState[item.id] ? 'text-emerald-900 line-through' : 'text-slate-700'}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {progress === 100 && (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold text-center">
+                      🎉 Tudo pronto! Boa prova!
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* DEFAULT / STANDARD TEXT OUTPUT READER WITH SOURCE BADGES */}
-        {!['simulado', 'fazer_questoes', 'questoes_500', 'teste', 'flashcards', 'slides', 'mapa_mental', 'resumo_audio', 'resumo_video', 'infografico', 'tabela_dados', 'relatorios'].includes(activeFeature.id) && (
+        {!['simulado', 'fazer_questoes', 'questoes_500', 'teste', 'flashcards', 'slides', 'mapa_mental', 'resumo_audio', 'resumo_video', 'infografico', 'tabela_dados', 'relatorios', 'checklist_vespera'].includes(activeFeature.id) && (
           <div className="space-y-4">
             {lastResultado ? (
               <div className="prose prose-slate max-w-none bg-slate-50 p-6 rounded-3xl border border-slate-200 text-xs leading-relaxed space-y-2">
-                {renderFormattedTextWithBadges(
-                  typeof lastResultado.conteudo === 'string'
-                    ? lastResultado.conteudo
-                    : (lastResultado.conteudo?.text || lastResultado.resultText)
-                )}
+                {renderFormattedTextWithBadges(getPlainText(lastResultado))}
               </div>
             ) : (
               <div className="text-center py-12 text-slate-400 space-y-2">

@@ -15,40 +15,23 @@ import {
   CampanhaCota,
 } from '../types';
 
+// Apenas 2 cadastros de teste: um admin com acesso total e um aluno comum.
 export const TEST_USERS: User[] = [
-  {
-    id: 0,
-    usuario: 'superadmin',
-    senha: '123456',
-    nome: 'Super Admin Master',
-    email: 'superadmin@jpschool.ia',
-    role: 'super_admin',
-    turmaNome: 'Acesso Total ao Sistema',
-  },
   {
     id: 1,
     usuario: 'admin',
     senha: '123456',
     nome: 'Admin',
     email: 'admin@jpschool.ia',
-    role: 'admin',
-    turmaNome: 'Gestão de Conteúdo',
+    role: 'super_admin',
+    turmaNome: 'Acesso Total ao Sistema',
   },
   {
     id: 2,
-    usuario: 'adminti',
+    usuario: 'jeanpierre',
     senha: '123456',
-    nome: 'Admin TI',
-    email: 'adminti@jpschool.ia',
-    role: 'ti',
-    turmaNome: 'Edição de Layout & Site',
-  },
-  {
-    id: 3,
-    usuario: 'jeanrsl',
-    senha: '123456',
-    nome: 'Jean RSL',
-    email: 'jeanrsl@jpschool.ia',
+    nome: 'Jean Pierre',
+    email: 'jeanpierre@jpschool.ia',
     role: 'cliente',
     turmaId: 1,
     turmaNome: 'SED ACT 2026',
@@ -178,7 +161,7 @@ export function resetarTentativasLogin(usuario: string) {
   delete loginAttemptTracker[usuario.toLowerCase()];
 }
 
-export const CURRENT_USER: User = TEST_USERS[1] || TEST_USERS[0]; // Default to Super Admin / Admin
+export const CURRENT_USER: User = TEST_USERS[1] || TEST_USERS[0]; // Aluno de teste (Jean Pierre) por padrão
 
 export const INITIAL_COTAS: CotasState = {
   producoesUsadas: 0,

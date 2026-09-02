@@ -231,17 +231,29 @@ export const Hero: React.FC<HeroProps> = ({
                 </button>
               </div>
 
-              {/* Indicators */}
+              {/* Indicators (com barra de progresso até a próxima troca) */}
               <div className="flex items-center space-x-1.5">
                 {slides.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveSlide(idx)}
-                    className={`h-2 rounded-full transition-all ${
-                      activeSlide === idx ? 'w-6 bg-[#1877F2]' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                    className={`h-2 rounded-full transition-all overflow-hidden ${
+                      activeSlide === idx ? 'w-8 bg-slate-200' : 'w-2 bg-slate-300 hover:bg-slate-400'
                     }`}
                     title={`Slide ${idx + 1}`}
-                  />
+                  >
+                    {activeSlide === idx && (
+                      <div
+                        key={`${activeSlide}-${isPlaying ? 'playing' : 'paused'}`}
+                        className="h-full bg-[#1877F2] rounded-full"
+                        style={
+                          isPlaying
+                            ? { animation: 'hero-carousel-progress 5s linear forwards' }
+                            : { width: '100%' }
+                        }
+                      />
+                    )}
+                  </button>
                 ))}
               </div>
 
