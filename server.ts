@@ -16,6 +16,7 @@ import {
   MOCK_CONFIGURACOES,
   MOCK_LEADS,
   MOCK_CAMPANHAS_COTA,
+  MOCK_ANNOTATIONS,
   validarPoliticaSenha,
   verificarTentativasLogin,
   registrarTentativaLoginFalha,
@@ -1762,6 +1763,40 @@ app.get('/api/campanhas-cota', requireAuth(['super_admin', 'admin', 'ti']), (req
   res.json({ campanhas: MOCK_CAMPANHAS_COTA });
 });
 
+// Anotações do aluno — persistidas server-side, vinculadas ao usuário autenticado
+// (não dependem mais só do localStorage do navegador).
+app.get('/api/anotacoes', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req: any, res) => {
+  const minhas = MOCK_ANNOTATIONS.filter((n) => n.usuarioId === req.user.userId);
+  res.json({ anotacoes: minhas });
+});
+
+app.post('/api/anotacoes', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req: any, res) => {
+  const { producaoId, titulo, featureId, materia, conteudoResumido, origem } = req.body;
+  const newNote = {
+    id: Date.now(),
+    usuarioId: req.user.userId,
+    producaoId: producaoId ?? 0,
+    titulo: titulo || 'Anotação',
+    featureId,
+    materia: materia || 'Geral',
+    data: new Date().toLocaleDateString('pt-BR'),
+    conteudoResumido: conteudoResumido || '',
+    origem: origem || 'oficial',
+  };
+  MOCK_ANNOTATIONS.unshift(newNote);
+  res.json({ success: true, anotacao: newNote });
+});
+
+app.delete('/api/anotacoes/:id', requireAuth(['super_admin', 'admin', 'ti', 'cliente']), (req: any, res) => {
+  const id = Number(req.params.id);
+  const index = MOCK_ANNOTATIONS.findIndex((n) => n.id === id && n.usuarioId === req.user.userId);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Anotação não encontrada' });
+  }
+  MOCK_ANNOTATIONS.splice(index, 1);
+  res.json({ success: true });
+});
+
 // CRUD endpoints for Matrículas
 app.post('/api/admin/matriculas', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
   const { usuarioId, cursoId, cursoNome, status, dataInicio, dataFim, origem, usuarioNome } = req.body;
@@ -1867,8 +1902,66 @@ app.post('/api/admin/pagamentos', requireAuth(['super_admin', 'admin', 'ti']), (
     dadosDepois: newPayment,
     criadoEm: new Date().toISOString()
   });
-  res.json({ success: true, pagamento: newPayment, pagamentos: MOCK_PAGAMENTOS });
+  syncMatriculaFromPagamento(newPayment);
+  res.json({ success: true, pagamento: newPayment, pagamentos: MOCK_PAGAMENTOS, matriculas: MOCK_MATRICULAS });
 });
+
+// Mantém a matrícula sincronizada com o status do pagamento: aprovado ativa
+// automaticamente o acesso; estorno/chargeback suspende. O admin só mexe manualmente
+// em casos excepcionais (fora desse fluxo padrão) — ver POST /api/matriculas/status.
+function syncMatriculaFromPagamento(pagamento: typeof MOCK_PAGAMENTOS[number]) {
+  const existente = MOCK_MATRICULAS.find((m) => m.usuarioId === pagamento.usuarioId);
+
+  if (pagamento.status === 'aprovado') {
+    if (existente) {
+      const oldStatus = existente.status;
+      existente.status = 'ativa';
+      if (oldStatus !== 'ativa') {
+        MOCK_LOGS_AUDITORIA.push({
+          id: MOCK_LOGS_AUDITORIA.length + 1,
+          acao: 'MATRICULA_ATIVADA_AUTOMATICAMENTE',
+          detalhes: `Matrícula ${existente.id} ativada automaticamente após aprovação do pagamento ${pagamento.id}`,
+          dadosAntes: { status: oldStatus },
+          dadosDepois: { status: 'ativa' },
+          criadoEm: new Date().toISOString(),
+        });
+      }
+    } else {
+      const novaMatricula = {
+        id: MOCK_MATRICULAS.length > 0 ? Math.max(...MOCK_MATRICULAS.map((m) => m.id)) + 1 : 1,
+        usuarioId: pagamento.usuarioId,
+        usuarioNome: pagamento.usuarioNome,
+        cursoId: 1,
+        cursoNome: pagamento.planoId || 'Plano Padrão',
+        status: 'ativa' as const,
+        dataInicio: new Date().toISOString().split('T')[0],
+        dataFim: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        origem: 'compra' as const,
+      };
+      MOCK_MATRICULAS.push(novaMatricula);
+      MOCK_LOGS_AUDITORIA.push({
+        id: MOCK_LOGS_AUDITORIA.length + 1,
+        acao: 'MATRICULA_CRIADA_AUTOMATICAMENTE',
+        detalhes: `Matrícula ${novaMatricula.id} criada e ativada automaticamente após aprovação do pagamento ${pagamento.id}`,
+        dadosAntes: {},
+        dadosDepois: novaMatricula,
+        criadoEm: new Date().toISOString(),
+      });
+    }
+  } else if (pagamento.status === 'estornado' || pagamento.status === 'chargeback') {
+    if (existente && existente.status === 'ativa') {
+      existente.status = 'suspensa';
+      MOCK_LOGS_AUDITORIA.push({
+        id: MOCK_LOGS_AUDITORIA.length + 1,
+        acao: 'MATRICULA_SUSPENSA_AUTOMATICAMENTE',
+        detalhes: `Matrícula ${existente.id} suspensa automaticamente por ${pagamento.status} no pagamento ${pagamento.id}`,
+        dadosAntes: { status: 'ativa' },
+        dadosDepois: { status: 'suspensa' },
+        criadoEm: new Date().toISOString(),
+      });
+    }
+  }
+}
 
 app.put('/api/admin/pagamentos/:id', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
   const id = Number(req.params.id);
@@ -1898,7 +1991,17 @@ app.put('/api/admin/pagamentos/:id', requireAuth(['super_admin', 'admin', 'ti'])
     dadosDepois: MOCK_PAGAMENTOS[index],
     criadoEm: new Date().toISOString()
   });
-  res.json({ success: true, pagamento: MOCK_PAGAMENTOS[index], pagamentos: MOCK_PAGAMENTOS });
+  const statusMudou = oldPayment.status !== MOCK_PAGAMENTOS[index].status;
+  if (statusMudou) {
+    syncMatriculaFromPagamento(MOCK_PAGAMENTOS[index]);
+  }
+  res.json({
+    success: true,
+    pagamento: MOCK_PAGAMENTOS[index],
+    pagamentos: MOCK_PAGAMENTOS,
+    matriculas: MOCK_MATRICULAS,
+    matriculaSincronizada: statusMudou,
+  });
 });
 
 app.delete('/api/admin/pagamentos/:id', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {

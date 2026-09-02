@@ -24,8 +24,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   if (!isOpen) return null;
 
+  // Extrai um valor numérico do preço cadastrado pelo admin (texto livre).
+  // Retorna null quando o preço não é numérico (ex: "Sob Consulta") — nesse caso
+  // não há desconto/cálculo para aplicar, só exibimos o texto como está.
+  const parsePrice = (price: string): number | null => {
+    const cleaned = price.replace(/[^\d,.-]/g, '').replace(',', '.');
+    const value = parseFloat(cleaned);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const numericPrice = parsePrice(selectedPlan.price);
+  const finalPriceLabel =
+    numericPrice === null
+      ? selectedPlan.price
+      : (discountApplied ? (numericPrice * 0.9) : numericPrice).toFixed(2).replace('.', ',');
+
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
+    if (numericPrice === null) {
+      alert('Este plano tem preço sob consulta e não aceita cupom de desconto automático.');
+      return;
+    }
     if (coupon.trim().toUpperCase() === 'PROFESSOR10') {
       setDiscountApplied(true);
     } else {
@@ -97,7 +116,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </span>
                 )}
                 <span className="text-lg font-extrabold text-[#1877F2]">
-                  R$ {discountApplied ? (parseFloat(selectedPlan.price.replace(',', '.')) * 0.9).toFixed(2).replace('.', ',') : selectedPlan.price}
+                  {numericPrice === null ? finalPriceLabel : `R$ ${finalPriceLabel}`}
                 </span>
               </div>
             </div>
@@ -148,7 +167,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           <div className="flex justify-between items-center text-sm font-bold text-[#2D3748]">
             <span>Total:</span>
             <span className="text-xl font-extrabold text-[#1877F2]">
-              R$ {discountApplied ? (parseFloat(selectedPlan.price.replace(',', '.')) * 0.9).toFixed(2).replace('.', ',') : selectedPlan.price}
+              {numericPrice === null ? finalPriceLabel : `R$ ${finalPriceLabel}`}
             </span>
           </div>
 

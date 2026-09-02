@@ -433,6 +433,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
       if (res.success) {
         showStatus('Pagamento cadastrado com sucesso!', 'success');
         setPagamentos(res.pagamentos);
+        if (res.matriculas) setMatriculas(res.matriculas);
         setShowAddPagamento(false);
         setPagUsuarioId(''); setPagUsuarioNome(''); setPagValorCentavos(''); setPagTransacaoId('');
         const logsData = await fetchLogsAuditoria();
@@ -464,8 +465,12 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
         transacaoId: pagTransacaoId
       });
       if (res.success) {
-        showStatus('Pagamento atualizado com sucesso!', 'success');
+        showStatus(
+          res.matriculaSincronizada ? 'Pagamento atualizado — matrícula sincronizada automaticamente!' : 'Pagamento atualizado com sucesso!',
+          'success'
+        );
         setPagamentos(res.pagamentos);
+        if (res.matriculas) setMatriculas(res.matriculas);
         setEditingPagamento(null);
         const logsData = await fetchLogsAuditoria();
         setLogs(logsData);
@@ -916,7 +921,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
   };
 
   const handleDeleteSource = async (id: number) => {
-    if (!confirm('Deseja realmente excluir este material? Todos os fragmentos RAG vinculados a ele serão perdidos.')) return;
+    if (!confirm('Deseja realmente excluir este material? Todo o conteúdo já processado dele será perdido.')) return;
     try {
       setIsLoading(true);
       const res = await deleteOfficialSource(id);
@@ -1026,7 +1031,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
       : folder.files;
 
     if (filesToProcess.length === 0) {
-      showStatus('Todos os PDFs desta pasta já estão indexados no RAG! Nenhum pendente.', 'success');
+      showStatus('Todos os PDFs desta pasta já foram processados! Nenhum pendente.', 'success');
       return;
     }
 
@@ -1107,7 +1112,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
     await loadDriveFiles();
 
     if (!cancelBatchRef.current) {
-      showStatus(`🎉 Ingestão concluída! ${processed} de ${filesToProcess.length} arquivos indexados (${totalChunks} fragmentos gerados).`, 'success');
+      showStatus(`🎉 Processamento concluído! ${processed} de ${filesToProcess.length} arquivos prontos para o Tutor de IA usar.`, 'success');
     }
   };
 
@@ -1142,7 +1147,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
         const sourceId = addRes.source.id;
         const ingestRes = await importDriveFile(fileId, sourceId);
         if (ingestRes.success) {
-          showStatus(`Documento "${cleanTitle}" importado e indexado com sucesso no RAG! ${ingestRes.details?.chunksIndexados || 0} fragmentos gerados.`, 'success');
+          showStatus(`Documento "${cleanTitle}" importado e processado com sucesso! Já está pronto para o Tutor de IA usar.`, 'success');
           await loadDriveFiles();
           const idxs = await fetchSourcesIndexStatus();
           setIndexStatus(idxs);
@@ -1499,7 +1504,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                 activeSection === 'conteudo' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-slate-200'
               }`}
             >
-              📚 Gestão de Conteúdo (RAG)
+              📚 Gestão de Conteúdo
             </button>
             <button
               onClick={() => setActiveSection('ti')}
@@ -1860,6 +1865,31 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                             </td>
                             <td className="py-4 text-right">
                               <div className="flex justify-end space-x-1.5">
+                                {m.status === 'ativa' ? (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Suspender o acesso de ${m.usuarioNome}? Use isso só em caso de problema ou violação de uso — pagamento em dia não deveria precisar disso.`)) {
+                                        handleUpdateStatus(m.id, 'suspensa');
+                                      }
+                                    }}
+                                    className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 rounded-lg transition-all"
+                                    title="Suspender acesso (problema/violação)"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : m.status === 'suspensa' ? (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Reativar o acesso de ${m.usuarioNome}?`)) {
+                                        handleUpdateStatus(m.id, 'ativa');
+                                      }
+                                    }}
+                                    className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all"
+                                    title="Reativar acesso"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : null}
                                 <button
                                   onClick={() => {
                                     setEditingMatricula(m);
@@ -3007,13 +3037,33 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
               </button>
 
               <button
+                onClick={() => setContentTab('editais')}
+                className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
+                  contentTab === 'editais' ? 'bg-blue-600 text-white shadow-xs' : 'hover:bg-slate-700 hover:text-slate-200'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>2. Fontes Manuais</span>
+              </button>
+
+              <button
+                onClick={() => setContentTab('questoes')}
+                className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
+                  contentTab === 'questoes' ? 'bg-blue-600 text-white shadow-xs' : 'hover:bg-slate-700 hover:text-slate-200'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span>3. Banco de Questões</span>
+              </button>
+
+              <button
                 onClick={() => setContentTab('relatorios')}
                 className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
                   contentTab === 'relatorios' ? 'bg-blue-600 text-white shadow-xs' : 'hover:bg-slate-700 hover:text-slate-200'
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
-                <span>2. Desempenho do Acervo RAG</span>
+                <span>4. Desempenho do Acervo</span>
               </button>
             </div>
 
@@ -3055,14 +3105,14 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                       <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1 font-mono">
                         <p className="text-[10px] uppercase font-bold text-slate-500">ID da Pasta Raiz no Drive</p>
                         <p className="text-slate-300 break-all select-all font-semibold">
-                          {driveStatus?.configured ? driveStatus.folderId : 'GOOGLE_DRIVE_FOLDER_ID não configurado (Configure em Painel Admin > Sistema)'}
+                          {driveStatus?.configured ? driveStatus.folderId : 'Não conectado ainda — fale com o time técnico para configurar'}
                         </p>
                       </div>
 
                       <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1 font-mono">
                         <p className="text-[10px] uppercase font-bold text-slate-500">E-mail de Serviço do Google Cloud</p>
                         <p className="text-slate-300 break-all select-all font-semibold">
-                          {driveStatus?.configured ? driveStatus.serviceAccountEmail : 'GOOGLE_SERVICE_ACCOUNT_KEY não configurado'}
+                          {driveStatus?.configured ? driveStatus.serviceAccountEmail : 'Não conectado ainda — fale com o time técnico para configurar'}
                         </p>
                       </div>
                     </div>
@@ -3085,7 +3135,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                             </div>
                             <div>
                               <h4 className="text-sm font-extrabold text-white flex items-center space-x-2">
-                                <span>Ingestão em Lote RAG em Andamento</span>
+                                <span>Processando Materiais em Lote</span>
                                 <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] font-mono font-bold rounded-md border border-blue-500/30">
                                   {Math.round((batchProgress.currentIndex / batchProgress.totalFiles) * 100)}%
                                 </span>
@@ -3118,7 +3168,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                               Processando PDF <strong>{batchProgress.currentIndex}</strong> de <strong>{batchProgress.totalFiles}</strong>: <span className="text-slate-200 font-semibold">{batchProgress.currentFileName}</span>
                             </span>
                             <span className="text-emerald-400 font-bold">
-                              {batchProgress.processedCount} Processados • {batchProgress.totalChunks} Chunks Gerados
+                              {batchProgress.processedCount} materiais processados
                             </span>
                           </div>
                         </div>
@@ -3152,7 +3202,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                           <CheckCircle2 className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase font-bold text-slate-400">Indexados no RAG</p>
+                          <p className="text-[10px] uppercase font-bold text-slate-400">Prontos para o Tutor de IA</p>
                           <p className="text-lg font-extrabold text-emerald-400">{totalIngestedPDFs} / {totalDrivePDFs}</p>
                         </div>
                       </div>
@@ -3221,16 +3271,16 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                                       <span>{folder.name}</span>
                                       {allIngested ? (
                                         <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold rounded-full border border-emerald-500/30">
-                                          ✅ 100% Ingerido ({folder.totalFiles} PDFs)
+                                          ✅ 100% Processado ({folder.totalFiles} PDFs)
                                         </span>
                                       ) : (
                                         <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-extrabold rounded-full border border-amber-500/30">
-                                          {folder.ingestedFiles}/{folder.totalFiles} No RAG
+                                          {folder.ingestedFiles}/{folder.totalFiles} processados
                                         </span>
                                       )}
                                     </h5>
                                     <p className="text-[11px] text-slate-400">
-                                      {folder.totalFiles} arquivos PDF nesta pasta • {folder.ingestedFiles} indexados no RAG
+                                      {folder.totalFiles} arquivos PDF nesta pasta • {folder.ingestedFiles} já processados
                                     </p>
                                   </div>
                                 </div>
@@ -3266,34 +3316,34 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                                           ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/30'
                                           : 'bg-slate-800/60 border-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                                       }`}
-                                      title={folder.ingestedFiles >= folder.totalFiles ? 'Todos os PDFs desta pasta já foram ingeridos' : 'Ingerir apenas os PDFs pendentes'}
+                                      title={folder.ingestedFiles >= folder.totalFiles ? 'Todos os PDFs desta pasta já foram processados' : 'Processar apenas os PDFs pendentes'}
                                     >
                                       {isBatching ? (
                                         <>
                                           <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                                          <span>Ingerindo...</span>
+                                          <span>Processando...</span>
                                         </>
                                       ) : (
                                         <>
                                           <Sparkles className="w-3.5 h-3.5" />
                                           <span>
                                             {folder.ingestedFiles >= folder.totalFiles
-                                              ? '✓ Todos Ingeridos'
-                                              : `⚡ Ingerir Pendentes (${folder.totalFiles - folder.ingestedFiles})`}
+                                              ? '✓ Todos Processados'
+                                              : `⚡ Processar Pendentes (${folder.totalFiles - folder.ingestedFiles})`}
                                           </span>
                                         </>
                                       )}
                                     </button>
 
-                                    {/* Button 2: Re-ingerir Tudo */}
+                                    {/* Button 2: Reprocessar Tudo */}
                                     <button
                                       onClick={() => handleImportFolderPDFs(folder, false)}
                                       disabled={isLoading || isBatching || folder.totalFiles === 0}
                                       className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center space-x-1.5"
-                                      title="Forçar a re-ingestão de todos os arquivos desta pasta"
+                                      title="Forçar o reprocessamento de todos os arquivos desta pasta"
                                     >
                                       <RotateCw className="w-3.5 h-3.5 text-slate-400" />
-                                      <span>Re-ingerir Tudo</span>
+                                      <span>Reprocessar Tudo</span>
                                     </button>
                                   </div>
                                 </div>
@@ -3312,7 +3362,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                                           <th className="p-3">🏷️ Categoria no Aluno</th>
                                           <th className="p-3">Modificado</th>
                                           <th className="p-3">Tamanho</th>
-                                          <th className="p-3">Status RAG</th>
+                                          <th className="p-3">Status</th>
                                           <th className="p-3 text-right pr-6">Ação</th>
                                         </tr>
                                       </thead>
@@ -3350,7 +3400,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                                                 {f.ingested ? (
                                                   <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-bold">
                                                     <CheckCircle2 className="w-3 h-3" />
-                                                    <span>Ingerido ({f.chunksCount} Chunks)</span>
+                                                    <span>Processado</span>
                                                   </span>
                                                 ) : (
                                                   <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded-lg text-[10px] font-semibold">
@@ -3370,7 +3420,7 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                                                       : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-500 text-white shadow-xs'
                                                   }`}
                                                 >
-                                                  {isThisIngesting ? 'Ingerindo...' : f.ingested ? '🔄 Re-ingerir' : '⚡ Ingerir no RAG'}
+                                                  {isThisIngesting ? 'Processando...' : f.ingested ? '🔄 Reprocessar' : '⚡ Processar'}
                                                 </button>
                                               </td>
                                             </tr>
@@ -3394,12 +3444,370 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
 
 
 
+              {/* TAB 2: FONTES MANUAIS (fora do fluxo do Google Drive) */}
+              {contentTab === 'editais' && (
+                <div className="space-y-6 w-full text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Fontes Manuais</h3>
+                      <p className="text-xs text-slate-400">Cadastre um material avulso sem precisar passar pelo Google Drive.</p>
+                    </div>
+                    {!showAddSource && !editingSource && (
+                      <button
+                        onClick={() => { setShowAddSource(true); setSrcTitle(''); }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center space-x-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Nova Fonte</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {(showAddSource || editingSource) && (
+                    <form
+                      onSubmit={editingSource ? handleUpdateSource : handleCreateSource}
+                      className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4 max-w-xl text-left animate-in fade-in slide-in-from-top-2"
+                    >
+                      <h4 className="text-sm font-bold text-white">{editingSource ? 'Editar Fonte' : 'Nova Fonte'}</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Título</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: Lei Complementar 688/SC Comentada"
+                            value={srcTitle}
+                            onChange={(e) => setSrcTitle(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Tipo</label>
+                          <select
+                            value={srcType}
+                            onChange={(e) => setSrcType(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="edital">Edital</option>
+                            <option value="lei">Lei</option>
+                            <option value="apostila">Apostila</option>
+                            <option value="prova">Prova Anterior</option>
+                            <option value="mapa_pronto">Mapa Mental Pronto</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Matéria</label>
+                          <input
+                            type="text"
+                            value={srcMateria}
+                            onChange={(e) => setSrcMateria(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Banca</label>
+                          <input
+                            type="text"
+                            value={srcBanca}
+                            onChange={(e) => setSrcBanca(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Ano</label>
+                          <input
+                            type="number"
+                            value={srcAno}
+                            onChange={(e) => setSrcAno(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Tamanho (informativo)</label>
+                          <input
+                            type="text"
+                            value={srcSize}
+                            onChange={(e) => setSrcSize(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {editingSource ? 'Salvar Alterações' : 'Cadastrar Fonte'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddSource(false); setEditingSource(null); setSrcTitle(''); }}
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="pb-3">Título</th>
+                        <th className="pb-3">Tipo</th>
+                        <th className="pb-3">Matéria</th>
+                        <th className="pb-3">Banca</th>
+                        <th className="pb-3">Ano</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sources.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-500">Nenhuma fonte cadastrada ainda.</td>
+                        </tr>
+                      ) : (
+                        sources.map((s: any) => (
+                          <tr key={s.id} className="border-b border-slate-800/60 hover:bg-slate-800/30">
+                            <td className="py-3 font-bold text-slate-200 max-w-xs truncate">{s.titulo}</td>
+                            <td className="py-3 text-slate-400 uppercase text-[10px]">{s.tipo}</td>
+                            <td className="py-3 text-slate-300">{s.materia}</td>
+                            <td className="py-3 text-slate-400">{s.banca}</td>
+                            <td className="py-3 text-slate-400 font-mono">{s.ano}</td>
+                            <td className="py-3">
+                              {(indexStatus[s.id] || 0) > 0 ? (
+                                <span className="text-emerald-400 font-bold text-[10px]">✓ Processado</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleIngestRAG(s.id)}
+                                  disabled={ingesterId === s.id}
+                                  className="text-blue-400 hover:underline text-[10px] font-bold disabled:opacity-50"
+                                >
+                                  {ingesterId === s.id ? 'Processando...' : '⚡ Processar'}
+                                </button>
+                              )}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex justify-end space-x-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingSource(s);
+                                    setShowAddSource(false);
+                                    setSrcTitle(s.titulo);
+                                    setSrcType(s.tipo);
+                                    setSrcMateria(s.materia);
+                                    setSrcBanca(s.banca);
+                                    setSrcAno(String(s.ano));
+                                    setSrcSize(s.tamanho || '');
+                                  }}
+                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-all"
+                                  title="Editar Fonte"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-[#1877F2]" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSource(s.id)}
+                                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-lg transition-all"
+                                  title="Excluir Fonte"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* TAB 3: BANCO DE QUESTÕES */}
+              {contentTab === 'questoes' && (
+                <div className="space-y-6 w-full text-left">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Banco de Questões</h3>
+                      <p className="text-xs text-slate-400">Cadastre questões inéditas avulsas para simulados e o banco de 500 questões.</p>
+                    </div>
+                    {!showAddQuestion && !editingQuestion && (
+                      <button
+                        onClick={() => { setShowAddQuestion(true); setQEnunciado(''); }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center space-x-1.5"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Nova Questão</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {(showAddQuestion || editingQuestion) && (
+                    <form
+                      onSubmit={editingQuestion ? handleUpdateQuestion : handleCreateQuestion}
+                      className="bg-slate-800 p-5 rounded-2xl border border-slate-700 space-y-4 max-w-2xl text-left animate-in fade-in slide-in-from-top-2"
+                    >
+                      <h4 className="text-sm font-bold text-white">{editingQuestion ? 'Editar Questão' : 'Nova Questão'}</h4>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Enunciado</label>
+                        <textarea
+                          required
+                          rows={3}
+                          value={qEnunciado}
+                          onChange={(e) => setQEnunciado(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans resize-y"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          { label: 'Alternativa A', value: qAltA, setter: setQAltA },
+                          { label: 'Alternativa B', value: qAltB, setter: setQAltB },
+                          { label: 'Alternativa C', value: qAltC, setter: setQAltC },
+                          { label: 'Alternativa D', value: qAltD, setter: setQAltD },
+                          { label: 'Alternativa E', value: qAltE, setter: setQAltE },
+                        ].map((alt) => (
+                          <div key={alt.label}>
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">{alt.label}</label>
+                            <input
+                              type="text"
+                              required={alt.label === 'Alternativa A' || alt.label === 'Alternativa B'}
+                              value={alt.value}
+                              onChange={(e) => alt.setter(e.target.value)}
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                            />
+                          </div>
+                        ))}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Gabarito</label>
+                          <select
+                            value={qGabarito}
+                            onChange={(e) => setQGabarito(Number(e.target.value))}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value={0}>A</option>
+                            <option value={1}>B</option>
+                            <option value={2}>C</option>
+                            <option value={3}>D</option>
+                            <option value={4}>E</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Matéria</label>
+                          <input
+                            type="text"
+                            value={qMateria}
+                            onChange={(e) => setQMateria(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-400 mb-1">Assunto</label>
+                          <input
+                            type="text"
+                            value={qAssunto}
+                            onChange={(e) => setQAssunto(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">Comentário do Gabarito</label>
+                        <textarea
+                          rows={2}
+                          value={qComentario}
+                          onChange={(e) => setQComentario(e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans resize-y"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {editingQuestion ? 'Salvar Alterações' : 'Cadastrar Questão'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddQuestion(false); setEditingQuestion(null); setQEnunciado(''); }}
+                          className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                        <th className="pb-3">Enunciado</th>
+                        <th className="pb-3">Matéria</th>
+                        <th className="pb-3">Assunto</th>
+                        <th className="pb-3">Banca</th>
+                        <th className="pb-3 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-500">Nenhuma questão cadastrada ainda.</td>
+                        </tr>
+                      ) : (
+                        questions.map((q: any) => (
+                          <tr key={q.id} className="border-b border-slate-800/60 hover:bg-slate-800/30">
+                            <td className="py-3 font-semibold text-slate-200 max-w-md truncate">{q.enunciado}</td>
+                            <td className="py-3 text-slate-300">{q.materia}</td>
+                            <td className="py-3 text-slate-400">{q.assunto}</td>
+                            <td className="py-3 text-slate-400">{q.banca}</td>
+                            <td className="py-3 text-right">
+                              <div className="flex justify-end space-x-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingQuestion(q);
+                                    setShowAddQuestion(false);
+                                    setQEnunciado(q.enunciado);
+                                    setQAltA(q.alternativas?.[0] || '');
+                                    setQAltB(q.alternativas?.[1] || '');
+                                    setQAltC(q.alternativas?.[2] || '');
+                                    setQAltD(q.alternativas?.[3] || '');
+                                    setQAltE(q.alternativas?.[4] || '');
+                                    setQGabarito(q.gabaritoIndex || 0);
+                                    setQMateria(q.materia);
+                                    setQAssunto(q.assunto);
+                                    setQComentario(q.comentario || '');
+                                  }}
+                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-all"
+                                  title="Editar Questão"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-[#1877F2]" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteQuestion(q.id)}
+                                  className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-lg transition-all"
+                                  title="Excluir Questão"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* TAB 4: RELATORIOS */}
               {contentTab === 'relatorios' && (
                 <div className="space-y-6 w-full text-left">
                   <div>
-                    <h3 className="text-lg font-bold text-white">Desempenho do Acervo (Métricas RAG)</h3>
-                    <p className="text-xs text-slate-400">Acompanhe estatísticas de uso de inteligência artificial e indexação vetorial.</p>
+                    <h3 className="text-lg font-bold text-white">Desempenho do Acervo</h3>
+                    <p className="text-xs text-slate-400">Acompanhe quantos materiais já estão prontos para o Tutor de IA usar.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -3414,18 +3822,18 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                       <p className="text-[10px] text-slate-500">Questões prontas no acervo geral</p>
                     </div>
                     <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Documentos Indexados</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Materiais Processados</p>
                       <p className="text-3xl font-extrabold text-white">
                         {Object.values(indexStatus).filter((c) => (c as number) > 0).length} / {sources.length}
                       </p>
-                      <p className="text-[10px] text-slate-500">Fontes integradas no RAG vetorial</p>
+                      <p className="text-[10px] text-slate-500">Já prontos para o Tutor de IA usar</p>
                     </div>
                     <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 text-left space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Total de Chunks Indexados</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400">Trechos Processados</p>
                       <p className="text-3xl font-extrabold text-white">
                         {Object.values(indexStatus).reduce((a, b) => (a as number) + (b as number), 0)}
                       </p>
-                      <p className="text-[10px] text-slate-500">Fragmentos vetoriais armazenados</p>
+                      <p className="text-[10px] text-slate-500">Pedaços de texto que o Tutor consegue buscar</p>
                     </div>
                   </div>
 
@@ -3433,9 +3841,9 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                     <div className="w-10 h-10 rounded-xl bg-slate-900/60 border border-slate-700 flex items-center justify-center text-emerald-400">
                       <CheckCircle className="w-5 h-5" />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-200">Mapeamento Vetorial Ok</h4>
+                    <h4 className="text-xs font-bold text-slate-200">Tudo Funcionando</h4>
                     <p className="text-[10px] text-slate-500 max-w-sm">
-                      O pipeline do RAG Híbrido está respondendo de forma integrada às buscas semânticas da Área do Aluno com banco local / Neon pgvector.
+                      O Tutor de IA está respondendo com base nos materiais processados aqui.
                     </p>
                   </div>
                 </div>
@@ -3455,7 +3863,6 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
               onUpdateConfig={onUpdateConfig}
               onResetDefault={onResetDefault}
               onExitAdmin={() => setActiveSection('operacional')}
-              onPreviewSalesSite={onGoToPlatform}
             />
           </div>
         )}

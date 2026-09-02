@@ -29,7 +29,7 @@ interface AdminPanelProps {
   onUpdateConfig: (newConfig: SiteConfig) => void;
   onResetDefault: () => void;
   onExitAdmin: () => void;
-  onPreviewSalesSite: () => void;
+  onPreviewSalesSite?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -117,10 +117,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     const updatedCategories = [...(formData.sourceCategories || []), newCat];
     const newConfig = { ...formData, sourceCategories: updatedCategories };
-    setFormData(newConfig);
-    onUpdateConfig(newConfig);
+    setFormData(newConfig); // só entra no site após "Salvar Alterações", igual às outras abas
 
-    // Sync directly to backend disk storage
+    // A lista de categorias que alimenta a Área do Aluno é um dado à parte (vem do
+    // Drive/RAG, não do rascunho do site) — por isso sincroniza direto, sem esperar o Salvar.
     syncCategoriesToBackend(updatedCategories);
 
     setNewCatName('');
@@ -162,7 +162,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const updatedCategories = (formData.sourceCategories || []).filter((c) => c.id !== catId);
       const newConfig = { ...formData, sourceCategories: updatedCategories };
       setFormData(newConfig);
-      onUpdateConfig(newConfig);
       syncCategoriesToBackend(updatedCategories);
     }
   };
@@ -181,7 +180,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       const newConfig = { ...formData, sourceCategories: updatedCategories };
       setFormData(newConfig);
-      onUpdateConfig(newConfig);
 
       try {
         const savedSourcesStr = localStorage.getItem('jpschool_official_sources');
@@ -222,7 +220,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           });
           const newCfg = { ...formData, sourceCategories: updatedCategories };
           setFormData(newCfg);
-          onUpdateConfig(newCfg);
         }
 
         if (res.sources && Array.isArray(res.sources)) {
@@ -392,13 +389,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           <div className="flex items-center space-x-3">
-            <button
-              onClick={onPreviewSalesSite}
-              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center space-x-1.5"
-            >
-              <Eye className="w-3.5 h-3.5 text-blue-400" />
-              <span>Ver Site de Vendas</span>
-            </button>
+            {onPreviewSalesSite && (
+              <button
+                onClick={onPreviewSalesSite}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-700 flex items-center space-x-1.5"
+              >
+                <Eye className="w-3.5 h-3.5 text-blue-400" />
+                <span>Ver Site de Vendas</span>
+              </button>
+            )}
 
             <button
               onClick={handleSave}
@@ -422,7 +421,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Main Admin Content Workspace */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
-        
+
+        {/* Save Model Notice — evita confusão sobre quando uma edição realmente vale */}
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2.5 rounded-xl text-[11px] font-semibold flex items-center gap-2">
+          <Save className="w-3.5 h-3.5 shrink-0" />
+          <span>Suas edições ficam como rascunho até você clicar em "Salvar Alterações" — em todas as abas, sem exceção.</span>
+        </div>
+
         {/* Success Alert */}
         {saveSuccess && (
           <div className="bg-emerald-500 text-white px-5 py-3.5 rounded-2xl shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in">
@@ -1222,7 +1227,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                       );
                                       const newCfg = { ...formData, sourceCategories: updatedCategories };
                                       setFormData(newCfg);
-                                      onUpdateConfig(newCfg);
                                     }}
                                     className="font-extrabold text-white bg-slate-900 px-2.5 py-1.5 border border-slate-700 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
                                   />

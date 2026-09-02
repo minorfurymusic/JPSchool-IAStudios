@@ -220,6 +220,7 @@ export interface ProducaoResultado {
 
 export interface AnotacaoItem {
   id: number;
+  usuarioId: number;
   producaoId: number;
   titulo: string;
   featureId: FeatureId;

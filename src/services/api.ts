@@ -121,6 +121,39 @@ export async function executeEstudioFeature(params: {
   };
 }
 
+// Anotações do aluno (persistidas no cadastro do usuário, não só no navegador)
+export async function fetchAnotacoes(): Promise<any[]> {
+  try {
+    const res = await authFetch('/api/anotacoes');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.anotacoes || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function createAnotacao(note: {
+  producaoId?: number;
+  titulo: string;
+  featureId: string;
+  materia?: string;
+  conteudoResumido: string;
+  origem: string;
+}): Promise<any> {
+  const res = await authFetch('/api/anotacoes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(note),
+  });
+  return await res.json();
+}
+
+export async function deleteAnotacao(id: number): Promise<any> {
+  const res = await authFetch(`/api/anotacoes/${id}`, { method: 'DELETE' });
+  return await res.json();
+}
+
 export async function fetchMatriculas(): Promise<any[]> {
   const res = await authFetch('/api/matriculas');
   const data = await res.json();

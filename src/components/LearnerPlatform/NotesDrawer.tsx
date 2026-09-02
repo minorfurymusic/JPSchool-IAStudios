@@ -26,6 +26,18 @@ export const NotesDrawer: React.FC<NotesDrawerProps> = ({
       n.conteudoResumido.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleDownloadNote = (note: AnotacaoItem) => {
+    const textContent = `${note.titulo}\nMatéria: ${note.materia}\nData: ${note.data}\nOrigem: ${note.origem === 'oficial' ? 'Biblioteca Oficial' : 'Complemento Externo'}\n\n${note.conteudoResumido}`;
+    const element = document.createElement('a');
+    const file = new Blob([textContent], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `JPSchool_Anotacao_${note.id}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    URL.revokeObjectURL(element.href);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
       <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 animate-slideLeft">
@@ -100,7 +112,7 @@ export const NotesDrawer: React.FC<NotesDrawerProps> = ({
                     {note.origem === 'oficial' ? '📗 Biblioteca Oficial' : '🌐 Complemento Externo'}
                   </span>
                   <button
-                    onClick={() => alert(`Baixando anotação: ${note.titulo}`)}
+                    onClick={() => handleDownloadNote(note)}
                     className="text-[#1877F2] font-bold hover:underline flex items-center space-x-1"
                   >
                     <Download className="w-3 h-3" />
@@ -123,7 +135,7 @@ export const NotesDrawer: React.FC<NotesDrawerProps> = ({
         {/* Drawer Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
           <p className="text-[10px] text-slate-500">
-            Anotações salvas com backup local sincronizado.
+            Anotações salvas na sua conta — acessíveis em qualquer dispositivo.
           </p>
         </div>
 

@@ -517,8 +517,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       )}
 
       {/* Output Display Area */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
-        
+      <div className="relative bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+
+        {/* Loading Overlay — deixa visível que uma nova resposta está sendo processada */}
+        {isLoading && (
+          <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-[1px] rounded-3xl flex flex-col items-center justify-center gap-3">
+            <RotateCw className="w-6 h-6 text-[#1877F2] animate-spin" />
+            <p className="text-xs font-bold text-slate-600">Gerando sua resposta...</p>
+          </div>
+        )}
+
         {/* Output Action Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div className="flex items-center space-x-2">
@@ -537,8 +545,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           {lastResultado && (
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => {
-                  onSaveNote(lastResultado);
+                onClick={async () => {
+                  await onSaveNote(lastResultado);
                   alert('Salvo com sucesso na aba "Minhas Anotações"!');
                 }}
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all"

@@ -20,11 +20,10 @@ import {
   OFFICIAL_SOURCES,
   FEATURES,
   MOCK_QUESTIONS,
-  MOCK_ANNOTATIONS,
 } from './data/mockDatabase';
 import { DEFAULT_SITE_CONFIG } from './data/siteConfig';
 import { User, CotasState, FeatureId, FonteEstudo, AnotacaoItem, ProducaoResultado, SiteConfig, PlanItem } from './types';
-import { fetchCotas, fetchSources, fetchQuestions, fetchCursosMaterias, login, logout, fetchCurrentUser } from './services/api';
+import { fetchCotas, fetchSources, fetchQuestions, fetchCursosMaterias, login, logout, fetchCurrentUser, fetchAnotacoes, createAnotacao, deleteAnotacao } from './services/api';
 
 export function App() {
   // Sem sessão válida = sempre começa no site de vendas, deslogado.
@@ -113,7 +112,7 @@ export function App() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [activeFeatureId, setActiveFeatureId] = useState<FeatureId>('plano_estudo');
   const [cotas, setCotas] = useState<CotasState>(INITIAL_COTAS);
-  const [notes, setNotes] = useState<AnotacaoItem[]>(MOCK_ANNOTATIONS);
+  const [notes, setNotes] = useState<AnotacaoItem[]>([]);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
 
   // Sync cotas, sources, courses/materias, and questions from backend on mount/view change
@@ -140,6 +139,7 @@ export function App() {
       }
     });
     fetchQuestions().then((q) => setQuestions(q));
+    fetchAnotacoes().then((n) => setNotes(n));
   }, [currentView, selectedTurmaName, isLoggedIn]);
 
   // Login handler — sempre passa pelo backend, nunca autentica localmente.
@@ -180,27 +180,34 @@ export function App() {
     setSources((prev) => prev.map((s) => ({ ...s, selecionada: !allSelected })));
   };
 
-  // Handler for saving note
-  const handleSaveNote = (producao: ProducaoResultado) => {
-    const newNote: AnotacaoItem = {
-      id: Date.now(),
+  // Handler for saving note — persiste no cadastro do usuário (backend), não só localStorage.
+  const handleSaveNote = async (producao: ProducaoResultado) => {
+    const plainText =
+      typeof producao.conteudo === 'string'
+        ? producao.conteudo
+        : producao.conteudo?.text || producao.resultText || '';
+
+    const result = await createAnotacao({
       producaoId: producao.id,
       titulo: producao.titulo || `Anotação de ${producao.featureId}`,
       featureId: producao.featureId,
       materia: 'Geral',
-      data: new Date().toLocaleDateString('pt-BR'),
-      conteudoResumido:
-        typeof producao.conteudo === 'string'
-          ? producao.conteudo.slice(0, 150) + '...'
-          : 'Conteúdo gerado no estúdio',
+      conteudoResumido: plainText ? plainText.slice(0, 150) + (plainText.length > 150 ? '...' : '') : 'Conteúdo gerado no estúdio',
       origem: producao.origem,
-    };
-    setNotes((prev) => [newNote, ...prev]);
+    });
+    if (result?.anotacao) {
+      setNotes((prev) => [result.anotacao, ...prev]);
+    }
   };
 
   // Handler for deleting note
-  const handleDeleteNote = (id: number) => {
+  const handleDeleteNote = async (id: number) => {
+    const previous = notes;
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    const result = await deleteAnotacao(id);
+    if (!result?.success) {
+      setNotes(previous); // reverte se o backend recusar
+    }
   };
 
   const activeFeature = FEATURES.find((f) => f.id === activeFeatureId) || FEATURES[0];
