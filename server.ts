@@ -199,6 +199,36 @@ function savePersistentConfigs() {
   }
 }
 
+// Persistent Storage for Student Annotations — nunca podem se perder num restart.
+const ANNOTATIONS_FILE_PATH = path.join(process.cwd(), 'storage', 'anotacoes.json');
+
+function loadPersistentAnnotations() {
+  try {
+    if (fs.existsSync(ANNOTATIONS_FILE_PATH)) {
+      const data = fs.readFileSync(ANNOTATIONS_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        MOCK_ANNOTATIONS.length = 0;
+        MOCK_ANNOTATIONS.push(...parsed);
+      }
+    }
+  } catch (err) {
+    console.error('Error loading persistent annotations:', err);
+  }
+}
+
+function savePersistentAnnotations() {
+  try {
+    const storageDir = path.join(process.cwd(), 'storage');
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+    fs.writeFileSync(ANNOTATIONS_FILE_PATH, JSON.stringify(MOCK_ANNOTATIONS, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving persistent annotations:', err);
+  }
+}
+
 // Persistent Storage for Official Sources & Unified Courses/Subjects
 const SOURCES_FILE_PATH = path.join(process.cwd(), 'storage', 'official_sources.json');
 const CURSOS_MATERIAS_FILE_PATH = path.join(process.cwd(), 'storage', 'cursos_materias.json');
@@ -383,6 +413,7 @@ function savePersistentCursosMaterias() {
 loadPersistentConfigs();
 loadPersistentSources();
 loadPersistentCursosMaterias();
+loadPersistentAnnotations();
 
 // Helper: pg Client Connection for Neon
 async function getPgClient(): Promise<pg.Client | null> {
@@ -1784,6 +1815,7 @@ app.post('/api/anotacoes', requireAuth(['super_admin', 'admin', 'ti', 'cliente']
     origem: origem || 'oficial',
   };
   MOCK_ANNOTATIONS.unshift(newNote);
+  savePersistentAnnotations();
   res.json({ success: true, anotacao: newNote });
 });
 
@@ -1794,7 +1826,18 @@ app.delete('/api/anotacoes/:id', requireAuth(['super_admin', 'admin', 'ti', 'cli
     return res.status(404).json({ error: 'Anotação não encontrada' });
   }
   MOCK_ANNOTATIONS.splice(index, 1);
+  savePersistentAnnotations();
   res.json({ success: true });
+});
+
+// Exportação compilada (só admin) — um único arquivo com as anotações de todos os
+// alunos, pensado para análise por IA e melhoria de produto, não para leitura individual.
+app.get('/api/admin/anotacoes/export', requireAuth(['super_admin', 'admin', 'ti']), (req, res) => {
+  const compiladas = MOCK_ANNOTATIONS.map((n) => {
+    const usuario = TEST_USERS.find((u) => u.id === n.usuarioId);
+    return { ...n, usuarioNome: usuario?.nome || `Usuário ${n.usuarioId}` };
+  });
+  res.json({ anotacoes: compiladas, total: compiladas.length });
 });
 
 // CRUD endpoints for Matrículas

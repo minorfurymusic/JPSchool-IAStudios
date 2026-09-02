@@ -154,6 +154,13 @@ export async function deleteAnotacao(id: number): Promise<any> {
   return await res.json();
 }
 
+// Exportação compilada (admin) — todas as anotações de todos os alunos num só arquivo
+export async function exportAnotacoes(): Promise<{ anotacoes: any[]; total: number }> {
+  const res = await authFetch('/api/admin/anotacoes/export');
+  if (!res.ok) return { anotacoes: [], total: 0 };
+  return await res.json();
+}
+
 export async function fetchMatriculas(): Promise<any[]> {
   const res = await authFetch('/api/matriculas');
   const data = await res.json();

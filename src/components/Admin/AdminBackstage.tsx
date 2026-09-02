@@ -31,6 +31,7 @@ import {
   FolderOpen,
   Sparkles,
   CheckCircle2,
+  Copy,
 } from 'lucide-react';
 import { User, SiteConfig } from '../../types';
 import { DEFAULT_SITE_CONFIG } from '../../data/siteConfig';
@@ -80,6 +81,7 @@ import {
   importDriveFile,
   importDriveFolder,
   generateAutoSubcategories,
+  exportAnotacoes,
 } from '../../services/api';
 import { AdminPanel } from './AdminPanel';
 
@@ -1446,6 +1448,53 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
     }
   };
 
+  // Baixa todas as anotações dos alunos num único arquivo, para análise por IA.
+  const handleExportAnotacoes = async () => {
+    try {
+      setIsLoading(true);
+      const { anotacoes, total } = await exportAnotacoes();
+      if (total === 0) {
+        showStatus('Nenhuma anotação de aluno registrada ainda.', 'error');
+        return;
+      }
+
+      const linhas = anotacoes.map((n: any) =>
+        [
+          `### ${n.titulo}`,
+          `- Aluno: ${n.usuarioNome} (id ${n.usuarioId})`,
+          `- Matéria: ${n.materia}`,
+          `- Ferramenta usada: ${n.featureId}`,
+          `- Data: ${n.data}`,
+          `- Origem do conteúdo: ${n.origem}`,
+          '',
+          n.conteudoResumido,
+          '',
+        ].join('\n')
+      );
+
+      const conteudo = [
+        '# Anotações dos Alunos — JPSchool',
+        `Exportado em ${new Date().toLocaleString('pt-BR')} • ${total} anotações`,
+        '',
+        ...linhas,
+      ].join('\n');
+
+      const element = document.createElement('a');
+      const file = new Blob([conteudo], { type: 'text/markdown' });
+      element.href = URL.createObjectURL(file);
+      element.download = `JPSchool_Anotacoes_${new Date().toISOString().split('T')[0]}.md`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      URL.revokeObjectURL(element.href);
+      showStatus(`${total} anotações exportadas com sucesso!`, 'success');
+    } catch (err) {
+      showStatus('Erro ao exportar anotações.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleIngestRAG = async (sourceId: number) => {
     try {
       setIngesterId(sourceId);
@@ -2260,6 +2309,20 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                             </td>
                             <td className="py-4 text-right">
                               <div className="flex justify-end space-x-1.5">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(c.codigo);
+                                      showStatus(`Código ${c.codigo} copiado!`, 'success');
+                                    } catch (err) {
+                                      showStatus('Não foi possível copiar automaticamente. Selecione o código na tabela.', 'error');
+                                    }
+                                  }}
+                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-all"
+                                  title="Copiar código"
+                                >
+                                  <Copy className="w-3.5 h-3.5 text-emerald-400" />
+                                </button>
                                 <button
                                   onClick={() => {
                                     setEditingCodigo(c);
@@ -3834,6 +3897,28 @@ export const AdminBackstage: React.FC<AdminBackstageProps> = ({
                         {Object.values(indexStatus).reduce((a, b) => (a as number) + (b as number), 0)}
                       </p>
                       <p className="text-[10px] text-slate-500">Pedaços de texto que o Tutor consegue buscar</p>
+                    </div>
+                  </div>
+
+                  {/* Exportação das anotações dos alunos para análise */}
+                  <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700 space-y-3 max-w-2xl">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Anotações dos Alunos</h4>
+                        <p className="text-[11px] text-slate-400 max-w-md">
+                          Baixe tudo o que os alunos salvaram em um único arquivo, para analisar
+                          com IA e entender onde o produto pode melhorar. Não mostra anotação
+                          individual na tela — é só o compilado.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleExportAnotacoes}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center space-x-1.5 disabled:opacity-50 shrink-0"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>Baixar Compilado</span>
+                      </button>
                     </div>
                   </div>
 

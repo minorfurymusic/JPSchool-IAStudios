@@ -9,6 +9,7 @@ coverage/
 scratch/
 storage/system_configs.json
 storage/db_local.json
+storage/anotacoes.json
 storage/*.pdf
 storage/*/*.pdf
 storage/*/
