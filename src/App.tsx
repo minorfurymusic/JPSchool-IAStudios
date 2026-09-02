@@ -26,20 +26,69 @@ import {
 } from './data/mockDatabase';
 import { DEFAULT_SITE_CONFIG } from './data/siteConfig';
 import { User, CotasState, FeatureId, FonteEstudo, AnotacaoItem, ProducaoResultado, SiteConfig, PlanItem } from './types';
-import { fetchCotas, fetchSources, fetchQuestions } from './services/api';
+import { fetchCotas, fetchSources, fetchQuestions, fetchCursosMaterias } from './services/api';
 
 export function App() {
-  const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>('platform');
-  const [currentUser, setCurrentUser] = useState<User>(TEST_USERS[3]); // Default to Cliente (jeanrsl)
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [currentView, setCurrentView] = useState<'sales' | 'platform' | 'admin_backstage' | 'admin_ti'>(() => {
+    try {
+      const saved = localStorage.getItem('jpschool_current_view');
+      if (saved) return saved as any;
+    } catch (e) {}
+    return 'admin_backstage';
+  });
+
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    try {
+      const saved = localStorage.getItem('jpschool_current_user');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return TEST_USERS[0]; // Default to Super Admin
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('jpschool_is_logged_in');
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {}
+    return true;
+  });
+
   const [isRetaFinal, setIsRetaFinal] = useState(true);
   const [selectedTurmaName, setSelectedTurmaName] = useState('SED ACT 2026');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jpschool_current_view', currentView);
+    } catch (e) {}
+  }, [currentView]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jpschool_current_user', JSON.stringify(currentUser));
+    } catch (e) {}
+  }, [currentUser]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(isLoggedIn));
+    } catch (e) {}
+  }, [isLoggedIn]);
 
   // Site Configuration state editable via Admin Panel with localStorage persistence
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
     try {
       const saved = localStorage.getItem('jpschool_site_config');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.sourceCategories && Array.isArray(parsed.sourceCategories) && parsed.sourceCategories.length > 0) {
+          const isCorrupted = parsed.sourceCategories.every((c: any) => c.nome.toLowerCase().includes('teste'));
+          if (isCorrupted) {
+            localStorage.removeItem('jpschool_site_config');
+            return DEFAULT_SITE_CONFIG;
+          }
+        }
+        return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
@@ -76,22 +125,48 @@ export function App() {
   const [notes, setNotes] = useState<AnotacaoItem[]>(MOCK_ANNOTATIONS);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
 
-  // Sync cotas, sources, and questions from backend on mount/view change
+  // Sync cotas, sources, courses/materias, and questions from backend on mount/view change
   useEffect(() => {
     fetchCotas().then((c) => setCotas(c));
-    fetchSources().then((s) => setSources(s));
+    fetchSources().then((s) => {
+      setSources(s);
+    });
+    fetchCursosMaterias().then((res) => {
+      if (res && Array.isArray(res.cursos) && res.cursos.length > 0) {
+        const activeCourse = res.cursos.find((c: any) => c.nome === selectedTurmaName) || res.cursos[0];
+        if (activeCourse && Array.isArray(activeCourse.materias) && activeCourse.materias.length > 0) {
+          const backendCategories = activeCourse.materias.map((m: any) => ({
+            id: m.id,
+            nome: m.nome,
+            corBadge: m.corBadge || 'bg-blue-100 text-blue-800',
+          }));
+          setSiteConfig((prev) => ({
+            ...prev,
+            sourceCategories: backendCategories,
+          }));
+        }
+      }
+    });
     fetchQuestions().then((q) => setQuestions(q));
-  }, [currentView]);
+  }, [currentView, selectedTurmaName]);
 
   // Login handler
   const handleLoginWithUser = (user: User) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
+    try {
+      localStorage.setItem('jpschool_current_user', JSON.stringify(user));
+      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(true));
+    } catch (e) {}
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentView('sales');
+    try {
+      localStorage.setItem('jpschool_is_logged_in', JSON.stringify(false));
+      localStorage.setItem('jpschool_current_view', 'sales');
+    } catch (e) {}
   };
 
   // Handlers for sources

@@ -59,96 +59,12 @@ export const TEST_USERS: User[] = [
   },
 ];
 
-// Collections for Onda 1 (Modelo de Dados do Contrato v2)
-export const MOCK_MATRICULAS: Matricula[] = [
-  {
-    id: 1,
-    usuarioId: 3,
-    usuarioNome: 'Jean RSL',
-    cursoId: 101,
-    cursoNome: 'Professor de Educação Básica - SED/SC 2026',
-    status: 'ativa',
-    dataInicio: '2026-01-15',
-    dataFim: '2026-10-30',
-    origem: 'compra',
-  },
-];
-
-export const MOCK_PAGAMENTOS: Pagamento[] = [
-  {
-    id: 1,
-    usuarioId: 3,
-    usuarioNome: 'Jean RSL',
-    planoId: 'plano-reta-final',
-    valor_centavos: 49700,
-    parcelas: 10,
-    metodo: 'pix',
-    status: 'aprovado',
-    gateway: 'mercadopago',
-    transacaoId: 'MP-984210398',
-    criadoEm: '2026-01-15T10:30:00Z',
-  },
-];
-
-export const MOCK_CODIGOS_ACESSO: CodigoAcesso[] = [
-  {
-    id: 1,
-    codigo: 'JP-TRIAL-7DIAS',
-    tipo: 'trial',
-    diasValidade: 7,
-    usado: false,
-    criadoEm: '2026-07-01T12:00:00Z',
-    cursoId: 101,
-    criadoPor: 'superadmin',
-  },
-  {
-    id: 2,
-    codigo: 'JP-CORTESIA-30D',
-    tipo: 'cortesia',
-    diasValidade: 30,
-    usado: true,
-    usadoPorUsuarioId: 3,
-    usadoEm: '2026-07-10T14:22:00Z',
-    criadoEm: '2026-07-01T12:00:00Z',
-    cursoId: 101,
-    criadoPor: 'admin',
-  },
-];
-
-export const MOCK_TICKETS: Ticket[] = [
-  {
-    id: 1,
-    usuarioId: 3,
-    usuarioNome: 'Jean RSL',
-    assunto: 'Dúvida sobre simulado inédito',
-    mensagem: 'Olá, gostaria de saber se as questões do simulado possuem comentário em áudio.',
-    status: 'resolvido',
-    prioridade: 'media',
-    respostas: [
-      {
-        autor: 'Suporte JPSchool',
-        mensagem: 'Olá Jean! Sim, todas as questões possuem comentário detalhado.',
-        criadoEm: '2026-07-20T11:00:00Z',
-      }
-    ],
-    criadoEm: '2026-07-20T09:15:00Z',
-  },
-];
-
-export const MOCK_LOGS_AUDITORIA: LogAuditoria[] = [
-  {
-    id: 1,
-    usuarioId: 0,
-    usuarioNome: 'Super Admin Master',
-    papel: 'super_admin',
-    acao: 'SISTEMA_INICIALIZADO',
-    detalhes: 'Estruturas de dados Onda 1 inicializadas conforme contrato v2',
-    dadosAntes: {},
-    dadosDepois: { versaoContrato: 'v2' },
-    ip: '127.0.0.1',
-    criadoEm: new Date().toISOString(),
-  },
-];
+// Collections para Dados Operacionais e Conteúdos Reais
+export const MOCK_MATRICULAS: Matricula[] = [];
+export const MOCK_PAGAMENTOS: Pagamento[] = [];
+export const MOCK_CODIGOS_ACESSO: CodigoAcesso[] = [];
+export const MOCK_TICKETS: Ticket[] = [];
+export const MOCK_LOGS_AUDITORIA: LogAuditoria[] = [];
 
 export const MOCK_CONFIGURACOES: ConfiguracaoSistema[] = [
   {
@@ -175,33 +91,34 @@ export const MOCK_CONFIGURACOES: ConfiguracaoSistema[] = [
     atualizadoPor: 'superadmin',
     atualizadoEm: '2026-07-30T00:00:00Z',
   },
-];
-
-export const MOCK_LEADS: Lead[] = [
   {
-    id: 1,
-    nome: 'Carlos Eduardo',
-    email: 'carlos.eduardo@gmail.com',
-    telefone: '(48) 99887-6655',
-    origem: 'site_vendas',
-    status: 'novo',
-    criadoEm: '2026-07-29T18:40:00Z',
-    cursoInteresseId: 101,
+    chave: 'GOOGLE_DRIVE_FOLDER_ID',
+    valor: '',
+    descricao: 'ID da pasta raiz do Google Drive contendo os Editais e materiais por Cargo/Curso',
+    categoria: 'geral',
+    atualizadoPor: 'superadmin',
+    atualizadoEm: '2026-08-17T10:00:00Z',
+  },
+  {
+    chave: 'GOOGLE_SERVICE_ACCOUNT_KEY',
+    valor: '',
+    descricao: 'Conteúdo JSON do arquivo de credenciais da Conta de Serviço do Google Cloud',
+    categoria: 'seguranca',
+    atualizadoPor: 'superadmin',
+    atualizadoEm: '2026-08-17T10:00:00Z',
+  },
+  {
+    chave: 'GEMINI_API_KEY',
+    valor: '',
+    descricao: 'Chave de API do Google Gemini PRO para acionar o Tutor de IA e RAG',
+    categoria: 'seguranca',
+    atualizadoPor: 'superadmin',
+    atualizadoEm: '2026-08-17T10:00:00Z',
   },
 ];
 
-export const MOCK_CAMPANHAS_COTA: CampanhaCota[] = [
-  {
-    id: 1,
-    nome: 'Maratona Reta Final SED-SC',
-    overrideProducoesMax: 10,
-    overrideDownloadsMax: 10,
-    dataInicio: '2026-08-01',
-    dataFim: '2026-08-10',
-    ativa: true,
-    cursoId: 101,
-  },
-];
+export const MOCK_LEADS: Lead[] = [];
+export const MOCK_CAMPANHAS_COTA: CampanhaCota[] = [];
 
 // Regras de Segurança Onda 2 (Validação de Backend sem UI)
 export function validarPoliticaSenha(senha: string): { valida: boolean; erro?: string } {
@@ -261,7 +178,7 @@ export function resetarTentativasLogin(usuario: string) {
   delete loginAttemptTracker[usuario.toLowerCase()];
 }
 
-export const CURRENT_USER: User = TEST_USERS[3]; // Default to Cliente (jeanrsl)
+export const CURRENT_USER: User = TEST_USERS[1] || TEST_USERS[0]; // Default to Super Admin / Admin
 
 export const INITIAL_COTAS: CotasState = {
   producoesUsadas: 0,
@@ -274,103 +191,54 @@ export const INITIAL_COTAS: CotasState = {
 export const OFFICIAL_SOURCES: FonteEstudo[] = [
   {
     id: 1,
-    titulo: 'Edital de Abertura SED-SC N° 021/2026 (Processo Seletivo ACT)',
-    tipo: 'edital',
-    banca: 'ACAFE/FEPESE',
+    titulo: 'LDB Lei 9.394/96 Comentada e Atualizada 2026',
+    tipo: 'lei',
+    banca: 'SED-SC',
     ano: 2026,
     materia: 'Legislação Educacional',
-    categoriaId: 'cat-leg-educ',
     selecionada: true,
-    tamanho: '1.4 MB',
+    tamanho: '2.4 MB'
   },
   {
     id: 2,
-    titulo: 'Lei Complementar N° 688/SC - Estatuto e Carreira do Magistério Público Estadual',
+    titulo: 'ECA Lei 8.069 Direitos Fundamentais da Criança',
     tipo: 'lei',
     banca: 'SED-SC',
-    ano: 2024,
-    materia: 'Estatuto do Servidor',
-    categoriaId: 'cat-estatuto',
+    ano: 2026,
+    materia: 'Legislação Educacional',
     selecionada: true,
-    tamanho: '2.8 MB',
+    tamanho: '1.8 MB'
   },
   {
     id: 3,
-    titulo: 'Lei Federal N° 9.394/96 - LDB Atualizada com Alterações para 2026',
+    titulo: 'Estatuto do Magistério Público Estadual SC (LC 688)',
     tipo: 'lei',
-    banca: 'MEC/Nacional',
+    banca: 'SED-SC',
     ano: 2026,
     materia: 'Legislação Educacional',
-    categoriaId: 'cat-leg-educ',
     selecionada: true,
-    tamanho: '3.1 MB',
+    tamanho: '3.1 MB'
   },
   {
     id: 4,
-    titulo: 'Currículo Base da Educação Infantil e Ensino Fundamental do Território Catarinense',
+    titulo: 'Didática Geral e Tendências Pedagógicas Contemporâneas',
     tipo: 'apostila',
     banca: 'SED-SC',
-    ano: 2025,
-    materia: 'Didática e Currículo SC',
-    categoriaId: 'cat-didatica',
+    ano: 2026,
+    materia: 'Didática e Currículo',
     selecionada: true,
-    tamanho: '8.5 MB',
+    tamanho: '4.5 MB'
   },
   {
     id: 5,
-    titulo: 'Prova Oficial Anterior - SED-SC 2024 (Prof. Anos Iniciais / Português / Didática)',
+    titulo: 'Provas Anteriores Resolvidas SED SC 2024-2025',
     tipo: 'prova',
-    banca: 'FEPESE',
-    ano: 2024,
-    materia: 'Provas Anteriores',
-    categoriaId: 'cat-provas',
-    selecionada: true,
-    tamanho: '4.2 MB',
-  },
-  {
-    id: 6,
-    titulo: 'Prova Oficial Anterior - Prefeituras de Florianópolis e Joinville 2025',
-    tipo: 'prova',
-    banca: 'IBADE/FEPESE',
-    ano: 2025,
-    materia: 'Provas Anteriores',
-    categoriaId: 'cat-provas',
-    selecionada: false,
-    tamanho: '3.9 MB',
-  },
-  {
-    id: 7,
-    titulo: 'Acervo de Mapas Mentais Prontos - Tendências Pedagógicas e Estatuto da Criança',
-    tipo: 'mapa_pronto',
-    banca: 'JPSchool Collection',
-    ano: 2026,
-    materia: 'Didática e Currículo',
-    categoriaId: 'cat-didatica',
-    selecionada: false,
-    tamanho: '5.0 MB',
-  },
-  {
-    id: 8,
-    titulo: 'Manual de Gramática e Sintaxe Aplicada às Bancas FEPESE e ACAFE',
-    tipo: 'apostila',
-    banca: 'FEPESE/ACAFE',
-    ano: 2026,
-    materia: 'Língua Portuguesa',
-    categoriaId: 'cat-portugues',
-    selecionada: true,
-    tamanho: '3.4 MB',
-  },
-  {
-    id: 9,
-    titulo: 'Resumo de História e Geografia de Santa Catarina - Aspectos Regionais e Sociais',
-    tipo: 'apostila',
     banca: 'SED-SC',
     ano: 2025,
-    materia: 'História e Geografia de SC',
-    categoriaId: 'cat-hist-geo-sc',
-    selecionada: false,
-    tamanho: '2.1 MB',
-  },
+    materia: 'Questões e Provas',
+    selecionada: true,
+    tamanho: '5.2 MB'
+  }
 ];
 
 export const FEATURES: EstudioFeature[] = [
@@ -598,108 +466,7 @@ export const FEATURES: EstudioFeature[] = [
   },
 ];
 
-export const MOCK_QUESTIONS: Questao[] = [
-  {
-    id: 1,
-    banca: 'FEPESE',
-    ano: 2024,
-    materia: 'Legislação SC',
-    assunto: 'Lei Complementar 688/SC - Carreira do Magistério',
-    enunciado: 'Segundo a Lei Complementar Estadual nº 688/SC, o Estágio Probatório do professor contratado ou efetivado na Rede Estadual de Ensino de Santa Catarina tem duração de quantos anos e inclui qual avaliação periódica obrigatoriamente?',
-    alternativas: [
-      'A) 2 anos, com avaliação semestral efetuada exclusivamente pela Direção Escolar.',
-      'B) 3 anos, com avaliação especial de desempenho realizada por comissão constituída para essa finalidade.',
-      'C) 5 anos, sem exigência de relatório final de desempenho funcional.',
-      'D) 3 anos, com avaliação realizada unicamente através de prova teórica anual.',
-      'E) 1 ano, renovável automaticamente em caso de concordância do Conselho Escolar.'
-    ],
-    gabaritoIndex: 1,
-    comentario: 'Gabarito B: Conforme prevê a LC 688/SC e a CF/88, o estágio probatório possui a duração de 3 anos (36 meses), durante os quais a aptidão e capacidade do servidor são avaliadas por comissão especial de desempenho.',
-    pegadinhaTipo: 'troca de prazos e órgãos avaliadores',
-    taxaAcertoGeral: 68.4,
-    origem: 'acervo',
-  },
-  {
-    id: 2,
-    banca: 'ACAFE',
-    ano: 2024,
-    materia: 'Didática e Currículo SC',
-    assunto: 'Currículo Base do Território Catarinense',
-    enunciado: 'O Currículo Base da Educação Infantil e Ensino Fundamental do Território Catarinense fundamenta-se nos princípios da Educação Integral. Sobre a concepção de Educação Integral adotada no documento, assinale a alternativa CORRETA:',
-    alternativas: [
-      'A) Refere-se estritamente ao aumento da jornada escolar de 4 para 7 horas diárias.',
-      'B) Compreende o sujeito em suas dimensões cognitiva, afetiva, social, cultural e física, promovendo o desenvolvimento humano pleno.',
-      'C) Prioriza as disciplinas teóricas em detrimento das atividades culturais e artísticas.',
-      'D) Aplica-se exclusivamente aos anos finais do Ensino Fundamental e ao Ensino Médio.',
-      'E) Substitui a Matriz Curricular por oficinas optativas sem vinculação às competências da BNCC.'
-    ],
-    gabaritoIndex: 1,
-    comentario: 'Gabarito B: A Educação Integral no Currículo Base de SC não se reduz ao tempo de permanência na escola, mas expressa a formação multidimensional do estudante em todas as suas facetas.',
-    pegadinhaTipo: 'Redução do conceito multidimensional para mero aumento de carga horária',
-    taxaAcertoGeral: 79.2,
-    origem: 'acervo',
-  },
-  {
-    id: 3,
-    banca: 'FEPESE',
-    ano: 2025,
-    materia: 'Legislação Educacional',
-    assunto: 'LDB 9.394/96 - Art. 13 (Incumbências dos Docentes)',
-    enunciado: 'Nos termos do artigo 13 da LDB (Lei nº 9.394/1996), compete aos docentes, DENTRE OUTRAS INCUMBÊNCIAS:',
-    alternativas: [
-      'A) Elaborar e executar a proposta pedagógica da escola sem a participação da comunidade docente.',
-      'B) Administrar o patrimônio financeiro e os recursos do Fundo de Manutenção da Escola.',
-      'C) Participar da elaboração da proposta pedagógica do estabelecimento de ensino e zelar pelo aprendizado dos alunos.',
-      'D) Deferir pedidos de transferência de matrícula e expedir diplomas estaduais.',
-      'E) Fiscalizar presencialmente a frequência dos pais nos locais de trabalho.'
-    ],
-    gabaritoIndex: 2,
-    comentario: 'Gabarito C: O Artigo 13, inciso I e III da LDB, estipula explicitamente a participação na proposta pedagógica e o zelo pelo aprendizado dos educandos como dever primordial do professor.',
-    pegadinhaTipo: 'Atribuir funções administrativas/gestoras ao corpo docente',
-    taxaAcertoGeral: 84.1,
-    origem: 'acervo',
-  },
-  {
-    id: 4,
-    banca: 'FEPESE',
-    ano: 2024,
-    materia: 'Didática',
-    assunto: 'Tendências Pedagógicas na Prática Escolar',
-    enunciado: 'Dentre as tendências pedagógicas progressistas, aquela que concebe a educação como um instrumento de transformação social e emancipação crítica a partir da problematização da realidade do educando é denominada:',
-    alternativas: [
-      'A) Pedagogia Liberal Tradicional.',
-      'B) Pedagogia Liberal Tecnicista.',
-      'C) Pedagogia Progressista Libertadora (Paulo Freire).',
-      'D) Pedagogia Liberal Renovada Não-Diretiva (Carl Rogers).',
-      'E) Pedagogia Tradicional Escolanovista.'
-    ],
-    gabaritoIndex: 2,
-    comentario: 'Gabarito C: A Pedagogia Libertadora fundamenta-se na conscientização crítica e na problematização da realidade social, tendo Paulo Freire como principal expoente.',
-    pegadinhaTipo: 'Confusão entre correntes Liberais e Progressistas',
-    taxaAcertoGeral: 62.5,
-    origem: 'acervo',
-  },
-  {
-    id: 5,
-    banca: 'IBADE',
-    ano: 2025,
-    materia: 'Legislação SC',
-    assunto: 'Estatuto da Criança e do Adolescente (ECA) - Acesso à Educação',
-    enunciado: 'De acordo com o Estatuto da Criança e do Adolescente (Lei nº 8.069/1990), ao constatar casos de maus-tratos ou reiteração de faltas injustificadas de alunos, os dirigentes de estabelecimentos de ensino fundamental deverão comunicar a qual órgão prioritário?',
-    alternativas: [
-      'A) Ao Ministério da Educação (MEC).',
-      'B) Ao Conselho Tutelar da respectiva localidade.',
-      'C) À Secretaria de Estado da Fazenda.',
-      'D) Ao Tribunal de Justiça Eleitoral.',
-      'E) Ao Sindicato dos Trabalhadores em Educação.'
-    ],
-    gabaritoIndex: 1,
-    comentario: 'Gabarito B: O Art. 56 do ECA impõe aos dirigentes escolares a obrigação de notificar o Conselho Tutelar em casos de maus-tratos, faltas injustificadas e evasão escolar.',
-    pegadinhaTipo: 'Substituição do Conselho Tutelar por órgãos burocráticos ou federais',
-    taxaAcertoGeral: 91.0,
-    origem: 'acervo',
-  }
-];
+export const MOCK_QUESTIONS: Questao[] = [];
 
 export const MOCK_ANNOTATIONS: AnotacaoItem[] = [];
 

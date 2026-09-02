@@ -15,8 +15,14 @@ import {
   SlidersHorizontal,
   MessageSquare,
   Layers,
+  Sparkles,
+  Search,
+  Folder,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
-import { SiteConfig, PlanItem, CarouselSlide, PlatformFeatureItem, TestimonialItem, BlockVisibility } from '../../types';
+import { generateAutoSubcategories, fetchSources, saveCursosMaterias } from '../../services/api';
+import { SiteConfig, PlanItem, CarouselSlide, PlatformFeatureItem, TestimonialItem, BlockVisibility, CategoriaFonte } from '../../types';
 
 interface AdminPanelProps {
   siteConfig: SiteConfig;
@@ -42,6 +48,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
   const [newCatColor, setNewCatColor] = useState('bg-blue-100 text-[#1877F2]');
+  const [newCatCurso, setNewCatCurso] = useState('Professor SED - História');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [openCourseAccordions, setOpenCourseAccordions] = useState<Record<string, boolean>>({
+    'Professor SED - História': true
+  });
+  const [selectedCategoriesByCourse, setSelectedCategoriesByCourse] = useState<Record<string, Record<string, boolean>>>({});
 
   // New Testimonial State
   const [newTestName, setNewTestName] = useState('');
@@ -100,15 +112,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       nome: newCatName.trim(),
       descricao: newCatDesc.trim() || 'Categoria de materiais de apoio',
       corBadge: newCatColor,
+      cursoNome: newCatCurso.trim() || 'Professor SED - História',
     };
 
-    setFormData((prev) => ({
-      ...prev,
-      sourceCategories: [...(prev.sourceCategories || []), newCat],
-    }));
+    const updatedCategories = [...(formData.sourceCategories || []), newCat];
+    const newConfig = { ...formData, sourceCategories: updatedCategories };
+    setFormData(newConfig);
+    onUpdateConfig(newConfig);
+
+    // Sync directly to backend disk storage
+    syncCategoriesToBackend(updatedCategories);
 
     setNewCatName('');
     setNewCatDesc('');
+  };
+
+  const syncCategoriesToBackend = async (cats: CategoriaFonte[]) => {
+    try {
+      const courseMap: Record<string, any[]> = {};
+      cats.forEach((c) => {
+        const cNome = c.cursoNome || 'Professor SED - História';
+        if (!courseMap[cNome]) courseMap[cNome] = [];
+        courseMap[cNome].push({
+          id: c.id,
+          nome: c.nome,
+          corBadge: c.corBadge,
+          driveFolderName: (c as any).driveFolderName || c.nome,
+          totalFiles: 0,
+          ingestedFiles: 0,
+        });
+      });
+      const cursosPayload = Object.keys(courseMap).map((cursoNome, idx) => ({
+        id: `curso-${idx + 1}`,
+        nome: cursoNome,
+        materias: courseMap[cursoNome],
+      }));
+      await saveCursosMaterias(cursosPayload);
+    } catch (err) {
+      console.warn('Erro ao sincronizar categorias com o backend:', err);
+    }
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -117,10 +159,84 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
     if (confirm('Tem certeza que deseja remover esta categoria de fontes? Ela sumirá do painel do aluno.')) {
-      setFormData((prev) => ({
-        ...prev,
-        sourceCategories: (prev.sourceCategories || []).filter((c) => c.id !== catId),
-      }));
+      const updatedCategories = (formData.sourceCategories || []).filter((c) => c.id !== catId);
+      const newConfig = { ...formData, sourceCategories: updatedCategories };
+      setFormData(newConfig);
+      onUpdateConfig(newConfig);
+      syncCategoriesToBackend(updatedCategories);
+    }
+  };
+
+  const handleDeleteSubcategory = (catId: string, subId: string) => {
+    if (confirm('Deseja remover esta subcategoria? Os arquivos cadastrados retornarão com segurança para a categoria principal sem serem excluídos.')) {
+      const updatedCategories = (formData.sourceCategories || []).map((cat) => {
+        if (cat.id === catId && cat.subcategorias) {
+          return {
+            ...cat,
+            subcategorias: cat.subcategorias.filter((s) => s.id !== subId),
+          };
+        }
+        return cat;
+      });
+
+      const newConfig = { ...formData, sourceCategories: updatedCategories };
+      setFormData(newConfig);
+      onUpdateConfig(newConfig);
+
+      try {
+        const savedSourcesStr = localStorage.getItem('jpschool_official_sources');
+        if (savedSourcesStr) {
+          const sources: any[] = JSON.parse(savedSourcesStr);
+          const updatedSources = sources.map((s) => {
+            if (s.subcategoriaId === subId) {
+              return { ...s, subcategoriaId: undefined, subcategoriaNome: undefined };
+            }
+            return s;
+          });
+          localStorage.setItem('jpschool_official_sources', JSON.stringify(updatedSources));
+        }
+      } catch (e) {}
+    }
+  };
+
+  const [isGeneratingSubcats, setIsGeneratingSubcats] = useState(false);
+  const [subcatMessage, setSubcatMessage] = useState<string | null>(null);
+
+  const handleAutoSubcategories = async (categoriaNome?: string) => {
+    try {
+      setIsGeneratingSubcats(true);
+      setSubcatMessage('Inteligência Artificial analisando materiais e organizando subcategorias por assunto...');
+      const res = await generateAutoSubcategories(categoriaNome);
+      if (res.success) {
+        setSubcatMessage(res.message);
+        if (res.subcategorias && Array.isArray(res.subcategorias)) {
+          const currentCategories = formData.sourceCategories || [];
+          const updatedCategories = currentCategories.map((cat) => {
+            if (!categoriaNome || cat.nome.toLowerCase().includes(categoriaNome.toLowerCase())) {
+              return {
+                ...cat,
+                subcategorias: res.subcategorias,
+              };
+            }
+            return cat;
+          });
+          const newCfg = { ...formData, sourceCategories: updatedCategories };
+          setFormData(newCfg);
+          onUpdateConfig(newCfg);
+        }
+
+        if (res.sources && Array.isArray(res.sources)) {
+          try {
+            localStorage.setItem('jpschool_official_sources', JSON.stringify(res.sources));
+          } catch (e) {}
+        }
+      } else {
+        setSubcatMessage(res.error || 'Erro ao gerar subcategorias.');
+      }
+    } catch (err: any) {
+      setSubcatMessage(err.message || 'Erro de conexão ao gerar subcategorias.');
+    } finally {
+      setIsGeneratingSubcats(false);
     }
   };
 
@@ -895,7 +1011,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <span>Criar Nova Categoria de Fontes</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Curso / Cargo</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Professor SED - História"
+                    value={newCatCurso}
+                    onChange={(e) => setNewCatCurso(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Nome da Categoria</label>
                   <input
@@ -940,99 +1067,267 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 className="px-4 py-2 bg-[#1877F2] hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-xs flex items-center space-x-1.5"
               >
                 <Plus className="w-4 h-4" />
-                <span>Adicionar Categoria ao Sistema</span>
+                <span>Adicionar Categoria ao Curso</span>
               </button>
             </div>
 
-            {/* List of Existing Categories (ITEM 3: Edição Completa) */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-xs text-slate-700">Categorias Ativas ({formData.sourceCategories?.length || 0})</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(formData.sourceCategories || []).map((cat) => (
-                  <div key={cat.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 relative text-xs">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-2 flex-1 pr-2">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Nome da Categoria</label>
-                          <input
-                            type="text"
-                            value={cat.nome}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                sourceCategories: (prev.sourceCategories || []).map((c) =>
-                                  c.id === cat.id ? { ...c, nome: val } : c
-                                ),
-                              }));
-                            }}
-                            className="font-extrabold text-slate-800 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
-                          />
+            {/* Real-time Category & Course Search Bar (POSITIONED DIRECTLY ABOVE COURSES) */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="relative flex-1 min-w-[280px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="🔍 Buscar por Curso, Cargo ou Categoria..."
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs font-semibold text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
+                  />
+                  {categorySearchQuery && (
+                    <button
+                      onClick={() => setCategorySearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-white"
+                    >
+                      ✕ Limpar
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      const all: Record<string, boolean> = {};
+                      (formData.sourceCategories || []).forEach((c) => {
+                        all[c.cursoNome || 'Professor SED - História'] = true;
+                      });
+                      setOpenCourseAccordions(all);
+                    }}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors border border-slate-300"
+                  >
+                    [+] Expandir Todos os Cursos
+                  </button>
+                  <button
+                    onClick={() => setOpenCourseAccordions({})}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors border border-slate-300"
+                  >
+                    [-] Recolher Todos os Cursos
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* List of Existing Categories Grouped by Course (SANFONA ACCORDION) */}
+            <div className="space-y-4">
+              {(() => {
+                const allCategories = formData.sourceCategories || [];
+                const search = categorySearchQuery.toLowerCase().trim();
+
+                const filteredCategories = allCategories.filter((cat) => {
+                  if (!search) return true;
+                  const matchCat = cat.nome.toLowerCase().includes(search) || (cat.descricao && cat.descricao.toLowerCase().includes(search));
+                  const matchCurso = (cat.cursoNome || 'Professor SED - História').toLowerCase().includes(search);
+                  const matchSub = cat.subcategorias && cat.subcategorias.some((s) => s.nome.toLowerCase().includes(search));
+                  return matchCat || matchCurso || matchSub;
+                });
+
+                const courseGroups: Record<string, CategoriaFonte[]> = {};
+                filteredCategories.forEach((cat) => {
+                  const cursoName = cat.cursoNome || 'Professor SED - História';
+                  if (!courseGroups[cursoName]) courseGroups[cursoName] = [];
+                  courseGroups[cursoName].push(cat);
+                });
+
+                const courseNames = Object.keys(courseGroups);
+
+                if (courseNames.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                      Nenhum curso ou categoria encontrado com o termo "{categorySearchQuery}".
+                    </div>
+                  );
+                }
+
+                return courseNames.map((cursoName) => {
+                  const catsInCourse = courseGroups[cursoName];
+                  const isOpen = openCourseAccordions[cursoName] !== false; // open by default unless set to false
+
+                  return (
+                    <div key={cursoName} className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-lg text-white">
+                      {/* Course Header Bar (Clickable Accordion) */}
+                      <div
+                        className="p-4.5 bg-slate-800/90 hover:bg-slate-800 flex items-center justify-between flex-wrap gap-3 cursor-pointer select-none border-b border-slate-800"
+                        onClick={() => {
+                          setOpenCourseAccordions((prev) => ({
+                            ...prev,
+                            [cursoName]: !isOpen,
+                          }));
+                        }}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <button className="text-slate-400 hover:text-white p-1">
+                            {isOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                          </button>
+                          <div className="p-2.5 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                            <Folder className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-extrabold text-white flex items-center space-x-2">
+                              <span>🎓 Curso / Cargo: {cursoName}</span>
+                              <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 text-[10px] font-bold rounded-full border border-blue-500/30">
+                                {catsInCourse.length} Categorias
+                              </span>
+                            </h3>
+                            <p className="text-[11px] text-slate-400">
+                              Clique para {isOpen ? 'recolher' : 'expandir'} a visualização das categorias deste curso.
+                            </p>
+                          </div>
                         </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Descrição</label>
-                          <input
-                            type="text"
-                            value={cat.descricao || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                sourceCategories: (prev.sourceCategories || []).map((c) =>
-                                  c.id === cat.id ? { ...c, descricao: val } : c
-                                ),
-                              }));
-                            }}
-                            placeholder="Descrição da categoria..."
-                            className="text-[11px] text-slate-600 bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Estilo do Badge</label>
-                          <select
-                            value={cat.corBadge || 'bg-blue-100 text-[#1877F2]'}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                sourceCategories: (prev.sourceCategories || []).map((c) =>
-                                  c.id === cat.id ? { ...c, corBadge: val } : c
-                                ),
-                              }));
-                            }}
-                            className="text-[11px] font-medium bg-white px-2.5 py-1.5 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                        <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleAutoSubcategories(cursoName)}
+                            disabled={isGeneratingSubcats}
+                            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all border flex items-center space-x-2 shadow-md ${
+                              isGeneratingSubcats
+                                ? 'bg-indigo-950 border-indigo-800 text-indigo-300 animate-pulse'
+                                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border-indigo-400 shadow-indigo-500/20 cursor-pointer hover:scale-102'
+                            }`}
                           >
-                            <option value="bg-blue-100 text-[#1877F2]">Azul (Normativa)</option>
-                            <option value="bg-emerald-100 text-emerald-800">Verde (Legislação SC)</option>
-                            <option value="bg-amber-100 text-amber-800">Amarelo (Educacional)</option>
-                            <option value="bg-purple-100 text-purple-800">Roxo (Didática)</option>
-                            <option value="bg-rose-100 text-rose-800">Rosa (Especial)</option>
-                            <option value="bg-slate-200 text-slate-800">Cinza (Provas/Geral)</option>
-                          </select>
+                            <Sparkles className={`w-3.5 h-3.5 ${isGeneratingSubcats ? 'animate-spin' : ''}`} />
+                            <span>✨ Organizar Subcategorias do Curso</span>
+                          </button>
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleDeleteCategory(cat.id)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0 ml-1"
-                        title="Remover categoria"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                      {/* Grid of Categories for this Course (Only shown when expanded) */}
+                      {isOpen && (
+                        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/40">
+                          {catsInCourse.map((cat) => (
+                            <div key={cat.id} className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700/80 space-y-3 relative text-xs text-slate-200 shadow-sm">
+                              <div className="flex justify-between items-start">
+                                <div className="space-y-2 flex-1 pr-2">
+                                  <div className="flex items-center justify-between">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Nome da Categoria</label>
+                                    <span className="text-[10px] font-bold text-blue-400 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800/60">
+                                      {cat.cursoNome || cursoName}
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={cat.nome}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const updatedCategories = (formData.sourceCategories || []).map((c) =>
+                                        c.id === cat.id ? { ...c, nome: val } : c
+                                      );
+                                      const newCfg = { ...formData, sourceCategories: updatedCategories };
+                                      setFormData(newCfg);
+                                      onUpdateConfig(newCfg);
+                                    }}
+                                    className="font-extrabold text-white bg-slate-900 px-2.5 py-1.5 border border-slate-700 rounded-lg text-xs w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                                  />
+                                </div>
 
-                    <div className="flex items-center space-x-2 text-[11px] pt-1 border-t border-slate-200/60">
-                      <span className="font-medium text-slate-500">Prévia no Aluno:</span>
-                      <span className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] ${cat.corBadge || 'bg-slate-200 text-slate-800'}`}>
-                        {cat.nome}
-                      </span>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Descrição</label>
+                                  <input
+                                    type="text"
+                                    value={cat.descricao || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        sourceCategories: (prev.sourceCategories || []).map((c) =>
+                                          c.id === cat.id ? { ...c, descricao: val } : c
+                                        ),
+                                      }));
+                                    }}
+                                    placeholder="Descrição da categoria..."
+                                    className="text-[11px] text-slate-300 bg-slate-900 px-2.5 py-1.5 border border-slate-700 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Estilo do Badge</label>
+                                  <select
+                                    value={cat.corBadge || 'bg-blue-100 text-[#1877F2]'}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        sourceCategories: (prev.sourceCategories || []).map((c) =>
+                                          c.id === cat.id ? { ...c, corBadge: val } : c
+                                        ),
+                                      }));
+                                    }}
+                                    className="text-[11px] font-medium bg-slate-900 text-white px-2.5 py-1.5 border border-slate-700 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                                  >
+                                    <option value="bg-blue-100 text-[#1877F2]">Azul (Normativa)</option>
+                                    <option value="bg-emerald-100 text-emerald-800">Verde (Legislação SC)</option>
+                                    <option value="bg-amber-100 text-amber-800">Amarelo (Educacional)</option>
+                                    <option value="bg-purple-100 text-purple-800">Roxo (Didática)</option>
+                                    <option value="bg-rose-100 text-rose-800">Rosa (Especial)</option>
+                                    <option value="bg-slate-200 text-slate-800">Cinza (Provas/Geral)</option>
+                                  </select>
+                                </div>
+
+                                {/* Subcategorias Ativas da Categoria */}
+                                <div className="pt-2.5 border-t border-slate-700/80 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <label className="block text-[10px] font-extrabold text-indigo-300 uppercase tracking-wider flex items-center space-x-1">
+                                      <Sparkles className="w-3 h-3 text-indigo-400" />
+                                      <span>Subcategorias Geradas ({cat.subcategorias?.length || 0})</span>
+                                    </label>
+                                    <button
+                                      onClick={() => handleAutoSubcategories(cat.nome)}
+                                      disabled={isGeneratingSubcats}
+                                      className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline flex items-center space-x-1"
+                                    >
+                                      <span>+ Gerar Tópicos</span>
+                                    </button>
+                                  </div>
+
+                                  {(!cat.subcategorias || cat.subcategorias.length === 0) ? (
+                                    <p className="text-[10px] text-slate-400 italic bg-slate-900/70 p-2 rounded-lg border border-dashed border-slate-700">
+                                      Nenhuma subcategoria gerada ainda. Vincule PDFs nesta categoria no RAG e clique em "+ Gerar Tópicos".
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {cat.subcategorias.map((sub) => (
+                                        <div key={sub.id} className="flex items-center justify-between bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700 text-[11px]">
+                                          <div className="flex items-center space-x-1.5 min-w-0 pr-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0"></span>
+                                            <span className="font-bold text-slate-200 truncate">{sub.nome}</span>
+                                          </div>
+                                          <button
+                                            onClick={() => handleDeleteSubcategory(cat.id, sub.id)}
+                                            className="text-rose-400 hover:text-rose-300 p-1 hover:bg-rose-950/50 rounded transition-colors shrink-0"
+                                            title="Excluir subcategoria (os PDFs retornarão com segurança para a categoria pai)"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/50 rounded-xl transition-colors shrink-0 ml-1"
+                                title="Remover Categoria"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}

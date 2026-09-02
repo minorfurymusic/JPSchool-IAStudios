@@ -124,11 +124,21 @@ export interface CotasState {
   resetTime: string;
 }
 
+export interface SubcategoriaFonte {
+  id: string;
+  nome: string;
+  descricao?: string;
+  categoriaId: string;
+  sourceIds?: number[];
+}
+
 export interface CategoriaFonte {
   id: string;
   nome: string;
   descricao?: string;
   corBadge?: string;
+  cursoNome?: string;
+  subcategorias?: SubcategoriaFonte[];
 }
 
 export interface FonteEstudo {
@@ -138,7 +148,10 @@ export interface FonteEstudo {
   banca: string;
   ano: number;
   materia: string;
+  cursoNome?: string;
   categoriaId?: string;
+  subcategoriaId?: string;
+  subcategoriaNome?: string;
   selecionada: boolean;
   tamanho: string;
 }
@@ -302,4 +315,75 @@ export interface SiteConfig {
   sourceCategories?: CategoriaFonte[];
   testimonials?: TestimonialItem[];
   blockVisibility?: BlockVisibility;
+}
+
+// Interfaces ricas para Ferramentas de Estudo (Grupo 2)
+export interface MapaMentalNode {
+  id: string;
+  label: string;
+  detalhe?: string;
+  badge?: string;
+  children?: MapaMentalNode[];
+}
+
+export interface TabelaNormativaRow {
+  norma: string;
+  artigoPrazo: string;
+  aplicacaoMagisterio: string;
+  pegadinhaBanca: string;
+}
+
+export interface InfograficoBlock {
+  titulo: string;
+  dadoDestaque: string;
+  descricao: string;
+  icone?: string;
+  alertaBanca?: string;
+}
+
+export interface ResumoVideoData {
+  tituloAula: string;
+  duracaoEstimada?: string;
+  pontosChave: string[];
+  pegadinhas: string[];
+  conclusao: string;
+}
+
+export interface RelatorioDesempenhoData {
+  mediaGeralAcertos: number;
+  totalQuestoesResolvidas: number;
+  disciplinas: {
+    nome: string;
+    taxaAcerto: number;
+    totalQuestoes: number;
+    nivel: 'excelente' | 'atencao' | 'critico';
+  }[];
+  comparativoConcorrencia: {
+    suaMedia: number;
+    mediaGeralCandidatos: number;
+    margemDiferenca: number;
+  };
+  recomendacaoEstudo: string;
+}
+
+// Interfaces para a Nova Arquitetura Unificada de Cursos & Matérias (Admin + Aluno)
+export interface MateriaCurso {
+  id: string;
+  nome: string;
+  cursoId: string;
+  descricao?: string;
+  driveFolderId?: string;
+  driveFolderName?: string;
+  corBadge?: string;
+  totalFiles: number;
+  ingestedFiles: number;
+  fontes: FonteEstudo[];
+}
+
+export interface CursoComMaterias {
+  id: string;
+  nome: string;
+  bancaPadrao: string;
+  descricao?: string;
+  materias: MateriaCurso[];
 }

@@ -147,7 +147,7 @@ export async function fetchCampanhasCota(): Promise<any[]> {
   return data.campanhas || [];
 }
 
-export async function addOfficialSource(source: { titulo: string; tipo: string; materia: string; banca: string; ano?: number; tamanho?: string }): Promise<any> {
+export async function addOfficialSource(source: { titulo: string; tipo: string; materia: string; banca: string; ano?: number; tamanho?: string; selecionada?: boolean }): Promise<any> {
   const res = await fetch('/api/admin/sources', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
@@ -183,4 +183,308 @@ export async function ingestDocumentSource(sourceId: number): Promise<any> {
   }
   return data;
 }
+
+// Matrículas CRUD
+export async function createMatricula(matricula: any): Promise<any> {
+  const res = await fetch('/api/admin/matriculas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(matricula),
+  });
+  return await res.json();
+}
+
+export async function updateMatricula(id: number, matricula: any): Promise<any> {
+  const res = await fetch(`/api/admin/matriculas/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(matricula),
+  });
+  return await res.json();
+}
+
+export async function deleteMatricula(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/matriculas/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Pagamentos CRUD
+export async function createPagamento(pagamento: any): Promise<any> {
+  const res = await fetch('/api/admin/pagamentos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(pagamento),
+  });
+  return await res.json();
+}
+
+export async function updatePagamento(id: number, pagamento: any): Promise<any> {
+  const res = await fetch(`/api/admin/pagamentos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(pagamento),
+  });
+  return await res.json();
+}
+
+export async function deletePagamento(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/pagamentos/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Códigos de Acesso CRUD
+export async function createCodigoAcesso(codigo: any): Promise<any> {
+  const res = await fetch('/api/admin/codigos-acesso', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(codigo),
+  });
+  return await res.json();
+}
+
+export async function updateCodigoAcesso(id: number, codigo: any): Promise<any> {
+  const res = await fetch(`/api/admin/codigos-acesso/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(codigo),
+  });
+  return await res.json();
+}
+
+export async function deleteCodigoAcesso(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/codigos-acesso/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Tickets CRUD
+export async function createTicket(ticket: any): Promise<any> {
+  const res = await fetch('/api/admin/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(ticket),
+  });
+  return await res.json();
+}
+
+export async function updateTicket(id: number, ticket: any): Promise<any> {
+  const res = await fetch(`/api/admin/tickets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(ticket),
+  });
+  return await res.json();
+}
+
+export async function deleteTicket(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/tickets/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Configurações CRUD (Create and Delete, Update already exists)
+export async function createConfiguracao(config: any): Promise<any> {
+  const res = await fetch('/api/admin/configuracoes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(config),
+  });
+  return await res.json();
+}
+
+export async function deleteConfiguracao(chave: string): Promise<any> {
+  const res = await fetch(`/api/admin/configuracoes/${chave}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Leads CRUD
+export async function createLead(lead: any): Promise<any> {
+  const res = await fetch('/api/admin/leads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(lead),
+  });
+  return await res.json();
+}
+
+export async function updateLead(id: number, lead: any): Promise<any> {
+  const res = await fetch(`/api/admin/leads/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(lead),
+  });
+  return await res.json();
+}
+
+export async function deleteLead(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/leads/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Campanhas de Cota CRUD
+export async function createCampanhaCota(campanha: any): Promise<any> {
+  const res = await fetch('/api/admin/campanhas-cota', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(campanha),
+  });
+  return await res.json();
+}
+
+export async function updateCampanhaCota(id: number, campanha: any): Promise<any> {
+  const res = await fetch(`/api/admin/campanhas-cota/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(campanha),
+  });
+  return await res.json();
+}
+
+export async function deleteCampanhaCota(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/campanhas-cota/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Sources CRUD updates/deletes
+export async function updateOfficialSource(id: number, source: any): Promise<any> {
+  const res = await fetch(`/api/admin/sources/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(source),
+  });
+  return await res.json();
+}
+
+export async function deleteOfficialSource(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/sources/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Questions CRUD updates/deletes
+export async function updateQuestion(id: number, question: any): Promise<any> {
+  const res = await fetch(`/api/admin/questions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify(question),
+  });
+  return await res.json();
+}
+
+export async function deleteQuestion(id: number): Promise<any> {
+  const res = await fetch(`/api/admin/questions/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-role': 'admin' },
+  });
+  return await res.json();
+}
+
+// Google Drive Sync API calls
+export async function fetchDriveStatus(): Promise<{ configured: boolean; folderId: string; serviceAccountEmail: string }> {
+  const res = await fetch('/api/admin/drive/status', { headers: { 'x-user-role': 'admin' } });
+  return await res.json();
+}
+
+export async function fetchDriveFiles(): Promise<{ folders: any[]; totalPDFs: number; totalIngestedPDFs: number; files?: any[] }> {
+  const res = await fetch('/api/admin/drive/files', { headers: { 'x-user-role': 'admin' } });
+  return await res.json();
+}
+
+export async function importDriveFile(fileId: string, sourceId: number): Promise<any> {
+  const res = await fetch('/api/admin/drive/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ fileId, sourceId }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro ao importar arquivo do Drive');
+  }
+  return data;
+}
+
+export async function importDriveFolder(folderName: string, files: any[]): Promise<any> {
+  const res = await fetch('/api/admin/drive/import-folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ folderName, files }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro ao importar pasta em lote');
+  }
+  return data;
+}
+
+export async function generateAutoSubcategories(categoriaNome?: string): Promise<any> {
+  const res = await fetch('/api/admin/sources/auto-subcategories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ categoriaNome }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro ao gerar subcategorias com IA');
+  }
+  return data;
+}
+
+export async function fetchCursosMaterias(): Promise<{ cursos: any[] }> {
+  try {
+    const res = await fetch('/api/cursos-materias');
+    if (!res.ok) throw new Error('Falha ao carregar cursos e matérias');
+    return await res.json();
+  } catch (err) {
+    console.warn('Erro ao carregar cursos-materias da API, usando fallback:', err);
+    return { cursos: [] };
+  }
+}
+
+export async function saveCursosMaterias(cursos: any[]): Promise<any> {
+  const res = await fetch('/api/admin/cursos-materias', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ cursos }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro ao salvar cursos e matérias');
+  }
+  return data;
+}
+
+export async function importDrivePending(folderName: string, files: any[]): Promise<any> {
+  const res = await fetch('/api/admin/drive/import-pending', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-role': 'admin' },
+    body: JSON.stringify({ folderName, files }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Erro ao importar arquivos pendentes');
+  }
+  return data;
+}
+
 

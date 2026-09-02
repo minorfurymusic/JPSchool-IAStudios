@@ -126,12 +126,12 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
     },
   ],
   sourceCategories: [
-    { id: 'cat-leg-educ', nome: 'Legislação Educacional', descricao: 'LDB 9.394/96, ECA, Diretrizes e Editais Oficiais SED-SC', corBadge: 'bg-amber-100 text-amber-800' },
-    { id: 'cat-estatuto', nome: 'Estatuto do Servidor', descricao: 'Estatuto do Magistério (LC 688/SC) e Legislação de SC', corBadge: 'bg-emerald-100 text-emerald-800' },
-    { id: 'cat-didatica', nome: 'Didática e Currículo', descricao: 'Currículo Base do Território Catarinense e Tendências Pedagógicas', corBadge: 'bg-purple-100 text-purple-800' },
-    { id: 'cat-portugues', nome: 'Língua Portuguesa', descricao: 'Gramática, Interpretação de Texto e Redação Oficial FEPESE/ACAFE', corBadge: 'bg-blue-100 text-[#1877F2]' },
-    { id: 'cat-hist-geo-sc', nome: 'História e Geografia de SC', descricao: 'Formação Territorial, Economia e Aspectos Históricos de SC', corBadge: 'bg-rose-100 text-rose-800' },
-    { id: 'cat-provas', nome: 'Provas Anteriores', descricao: 'Provas Anteriores Comentadas FEPESE, ACAFE, IBADE e FURB', corBadge: 'bg-slate-200 text-slate-800' },
+    { id: 'cat-leg-educ', nome: 'Legislação Educacional', cursoNome: 'Professor SED - História', descricao: 'LDB 9.394/96, ECA, Diretrizes e Editais Oficiais SED-SC', corBadge: 'bg-amber-100 text-amber-800' },
+    { id: 'cat-estatuto', nome: 'Estatuto do Servidor', cursoNome: 'Professor SED - História', descricao: 'Estatuto do Magistério (LC 688/SC) e Legislação de SC', corBadge: 'bg-emerald-100 text-emerald-800' },
+    { id: 'cat-didatica', nome: 'Didática e Currículo', cursoNome: 'Professor SED - História', descricao: 'Currículo Base do Território Catarinense e Tendências Pedagógicas', corBadge: 'bg-purple-100 text-purple-800' },
+    { id: 'cat-portugues', nome: 'Língua Portuguesa', cursoNome: 'Professor SED - História', descricao: 'Gramática, Interpretação de Texto e Redação Oficial FEPESE/ACAFE', corBadge: 'bg-blue-100 text-[#1877F2]' },
+    { id: 'cat-hist-geo-sc', nome: 'História e Geografia de SC', cursoNome: 'Professor SED - História', descricao: 'Formação Territorial, Economia e Aspectos Históricos de SC', corBadge: 'bg-rose-100 text-rose-800' },
+    { id: 'cat-provas', nome: 'Provas Anteriores', cursoNome: 'Professor SED - História', descricao: 'Provas Anteriores Comentadas FEPESE, ACAFE, IBADE e FURB', corBadge: 'bg-slate-200 text-slate-800' },
   ],
   testimonials: [
     {

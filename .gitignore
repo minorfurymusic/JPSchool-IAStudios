@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+scratch/
+storage/system_configs.json
+storage/db_local.json
+storage/*.pdf
+storage/*/*.pdf
+storage/*/
+storage/*/**
+!storage/cursos_materias.json
+!storage/official_sources.json
