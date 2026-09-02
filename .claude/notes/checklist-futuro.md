@@ -22,3 +22,12 @@ Notificar o aluno (e-mail/push, quando existir) quando o sistema detectar pouco 
 
 ## 6. Paginação nas tabelas do Admin Backstage
 Não urgente com o volume atual de registros. Revisitar quando a base de matrículas/pagamentos/logs crescer de verdade.
+
+## 7. Raio-X da Banca — 2 óticas (depende do item 8)
+**Ótica 1 — prioridade de estudo por incidência histórica:** análise dos últimos 5 anos de provas, distribuída por assunto, definindo prioridade de estudo e de exercícios. O admin anexa esse documento de análise dentro de cada curso individual. Depende de existir o conceito de curso individual (item 8) e de uma forma de anexar documento por curso.
+
+**Ótica 2 — estatística real de acerto:** cálculo agregado de "X alunos responderam, Y acertaram" por assunto, considerando **exclusivamente** as questões reais da banca (banco de dados), separadas das questões geradas pela IA (existe um botão dentro do Estúdio que gera questões parecidas, não idênticas às do banco).
+**Bloqueio atual:** o sistema não registra em lugar nenhum se um aluno acertou ou errou uma questão — isso vive só na tela e se perde. Precisa criar esse registro (quem respondeu o quê, certo/errado, questão oficial vs. gerada por IA) antes de conseguir calcular qualquer estatística.
+
+## 8. Unificação de Cursos/Matérias + telas de conteúdo (confirmado)
+Hoje existem duas portas de entrada para o mesmo dado (`storage/cursos_materias.json`): a aba "Categorias" do Editor de Layout e a tela "Gestão de Conteúdo" (Drive/processamento). Decisão tomada: **unificar as duas em uma só tela**, junto com o modelo de cursos por área (Professor + disciplina; Educação Infantil e Educação Especial como cursos separados fora do bloco Professor). O Raio-X ótica 1 depende disso.
