@@ -283,36 +283,34 @@ export function App() {
       {currentView === 'platform' && (
         <div className="flex-1 flex flex-col min-h-0">
 
-          {/* Main Column (Materiais em cima + Chat abaixo) + Coluna do Estúdio à direita */}
+          {/* Barra superior: Estúdio de IA (abas expansíveis, compacto) */}
+          <StudioSidebar
+            features={FEATURES}
+            activeFeatureId={activeFeatureId}
+            onSelectFeature={setActiveFeatureId}
+            isRetaFinal={isRetaFinal}
+          />
+
+          {/* Chat (esquerda/centro) + Materiais de Estudo (direita) */}
           <div className="flex-1 flex flex-col lg:flex-row min-h-0">
 
-            {/* Main Column: Materiais de Estudo (topo) + Workspace/Chat (abaixo) */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <SourcesSidebar
-                sources={sources}
-                categories={siteConfig.sourceCategories}
-                onToggleSource={handleToggleSource}
-                onSelectAll={handleSelectAllSources}
-              />
-
-              <Workspace
-                activeFeature={activeFeature}
-                selectedSources={sources}
-                isRetaFinal={isRetaFinal}
-                onQuotaUsed={() => {
-                  fetchCotas().then((c) => setCotas(c));
-                }}
-                onSaveNote={handleSaveNote}
-                allQuestions={questions}
-              />
-            </div>
-
-            {/* Right Column: Studio 4-Group Feature Catalog (abas expansíveis) */}
-            <StudioSidebar
-              features={FEATURES}
-              activeFeatureId={activeFeatureId}
-              onSelectFeature={setActiveFeatureId}
+            <Workspace
+              activeFeature={activeFeature}
+              selectedSources={sources}
               isRetaFinal={isRetaFinal}
+              onQuotaUsed={() => {
+                fetchCotas().then((c) => setCotas(c));
+              }}
+              onSaveNote={handleSaveNote}
+              allQuestions={questions}
+            />
+
+            {/* Right Column: Materiais de Estudo */}
+            <SourcesSidebar
+              sources={sources}
+              categories={siteConfig.sourceCategories}
+              onToggleSource={handleToggleSource}
+              onSelectAll={handleSelectAllSources}
             />
 
           </div>

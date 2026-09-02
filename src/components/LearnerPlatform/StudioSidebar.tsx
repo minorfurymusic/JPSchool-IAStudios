@@ -86,31 +86,39 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
     });
   };
 
-  // Group configs
-  const groupMeta: Record<GroupId, { title: string; color: string; border: string; bg: string }> = {
+  // Group configs (nomes curtos — a barra é horizontal, precisa caber)
+  const groupMeta: Record<GroupId, { title: string; short: string; color: string; border: string; bg: string; chipBg: string }> = {
     g1: {
-      title: '1. Essencial do Dia a Dia',
+      title: 'Essencial do Dia a Dia',
+      short: 'Essencial',
       color: 'text-[#1877F2]',
       border: 'border-blue-200',
       bg: 'bg-blue-50/60',
+      chipBg: 'bg-blue-100/70',
     },
     g2: {
-      title: '2. Gerar Material de Estudo',
+      title: 'Gerar Material de Estudo',
+      short: 'Gerar Material',
       color: 'text-indigo-600',
       border: 'border-indigo-200',
       bg: 'bg-indigo-50/60',
+      chipBg: 'bg-indigo-100/70',
     },
     g3: {
-      title: '3. Avaliar e Corrigir',
+      title: 'Avaliar e Corrigir',
+      short: 'Avaliar',
       color: 'text-emerald-700',
       border: 'border-emerald-200',
       bg: 'bg-emerald-50/60',
+      chipBg: 'bg-emerald-100/70',
     },
     g4: {
-      title: '4. Reta Final (Revisão Intensiva)',
+      title: 'Reta Final (Revisão Intensiva)',
+      short: 'Reta Final',
       color: 'text-[#C85A00]',
       border: 'border-amber-300',
       bg: 'bg-amber-50/80',
+      chipBg: 'bg-amber-100/80',
     },
   };
 
@@ -120,58 +128,51 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
     : ['g1', 'g2', 'g3', 'g4'];
 
   return (
-    <nav className="w-full lg:w-80 shrink-0 bg-slate-50/90 border-l border-slate-200 p-4 space-y-4 font-sans overflow-y-auto lg:h-[calc(100vh-60px)] lg:max-h-none">
-      
-      {/* Studio Header */}
-      <div className="pb-3 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Sparkles className="w-4 h-4 text-[#1877F2]" />
-          <h2 className="font-bold text-sm text-[#2D3748]">Estúdio de IA • Ferramentas</h2>
+    <nav className="w-full shrink-0 bg-white border-b border-slate-200 font-sans">
+
+      {/* Header + Group Tabs (tudo compacto, uma única faixa) */}
+      <div className="px-4 py-2 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 pr-1 shrink-0">
+          <Sparkles className="w-3.5 h-3.5 text-[#1877F2]" />
+          <h2 className="font-bold text-[11px] text-[#2D3748] uppercase tracking-wide">Estúdio de IA</h2>
         </div>
-        {isRetaFinal && (
-          <span className="text-[10px] font-extrabold bg-amber-500 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
-            Reta Final
-          </span>
-        )}
+
+        {groupOrder.map((groupId) => {
+          const meta = groupMeta[groupId];
+          const groupFeatures = features.filter((f) => f.grupo === groupId);
+          const isExpanded = !!expandedGroups[groupId];
+          const activeInGroup = groupFeatures.some((f) => f.id === activeFeatureId);
+
+          return (
+            <button
+              key={groupId}
+              onClick={() => toggleGroup(groupId)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border ${
+                isExpanded
+                  ? `${meta.chipBg} ${meta.color} ${meta.border}`
+                  : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+              } ${isRetaFinal && groupId === 'g4' ? 'ring-2 ring-amber-300' : ''}`}
+            >
+              {groupId === 'g4' && <Flame className="w-3 h-3 shrink-0" />}
+              <span>{meta.short}</span>
+              <span className="text-[9px] opacity-70">({groupFeatures.length})</span>
+              {activeInGroup && (
+                <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" title="Ferramenta ativa neste grupo" />
+              )}
+              {isExpanded ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Render Groups as Expandable Accordions (permanência via localStorage) */}
-      {groupOrder.map((groupId) => {
+      {/* Expanded groups render their tool pills right below the tab row */}
+      {groupOrder.filter((g) => expandedGroups[g]).map((groupId) => {
         const meta = groupMeta[groupId];
         const groupFeatures = features.filter((f) => f.grupo === groupId);
-        const isExpanded = !!expandedGroups[groupId];
-        const activeInGroup = groupFeatures.some((f) => f.id === activeFeatureId);
 
         return (
-          <div
-            key={groupId}
-            className={`rounded-2xl border ${meta.border} ${meta.bg} overflow-hidden transition-all ${
-              isRetaFinal && groupId === 'g4' ? 'shadow-md border-2 border-amber-400' : ''
-            }`}
-          >
-            {/* Group Title (clique expande/recolhe) */}
-            <button
-              onClick={() => toggleGroup(groupId)}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-left"
-            >
-              <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${meta.color}`}>
-                {isExpanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
-                <span>{meta.title}</span>
-                {activeInGroup && !isExpanded && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1877F2] shrink-0" title="Ferramenta ativa neste grupo" />
-                )}
-              </span>
-              {isRetaFinal && groupId === 'g4' && (
-                <span className="text-[10px] font-bold text-[#C85A00] flex items-center space-x-1 shrink-0">
-                  <Flame className="w-3 h-3 text-[#C85A00]" />
-                  <span>Topo</span>
-                </span>
-              )}
-            </button>
-
-            {/* Group Feature Buttons */}
-            {isExpanded && (
-            <div className="space-y-1.5 px-3 pb-3">
+          <div key={groupId} className={`px-4 py-2.5 border-t ${meta.border} ${meta.bg}`}>
+            <div className="flex flex-wrap gap-1.5">
               {groupFeatures.map((feature) => {
                 const IconComponent = iconMap[feature.icone] || BookOpen;
                 const isActive = activeFeatureId === feature.id;
@@ -180,45 +181,24 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                   <button
                     key={feature.id}
                     onClick={() => onSelectFeature(feature.id)}
-                    className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start space-x-2.5 group relative ${
+                    title={feature.descricao}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
                       isActive
-                        ? 'bg-white text-[#1877F2] font-bold shadow-sm border border-blue-300 ring-2 ring-blue-100'
-                        : 'bg-white/80 hover:bg-white text-slate-700 hover:text-slate-900 border border-slate-200/80 shadow-2xs'
+                        ? 'bg-white text-[#1877F2] border-blue-300 shadow-2xs ring-1 ring-blue-100'
+                        : 'bg-white/80 hover:bg-white text-slate-600 hover:text-slate-900 border-slate-200/80'
                     }`}
                   >
-                    <div
-                      className={`mt-0.5 p-1.5 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-blue-50 text-[#1877F2]'
-                          : 'bg-slate-100 text-slate-500 group-hover:text-[#1877F2]'
-                      }`}
-                    >
-                      <IconComponent className="w-4 h-4" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs truncate font-semibold leading-tight">
-                          {feature.nome}
-                        </span>
-
-                        {feature.badge && (
-                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-100 text-[#C85A00] shrink-0">
-                            {feature.badge}
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 font-normal">
-                        {feature.descricao}
-                      </p>
-                    </div>
+                    <IconComponent className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">{feature.nome}</span>
+                    {feature.badge && (
+                      <span className="text-[8px] font-extrabold px-1 py-0.5 rounded bg-amber-100 text-[#C85A00] shrink-0">
+                        {feature.badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            )}
-
           </div>
         );
       })}

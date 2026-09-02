@@ -141,63 +141,65 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
   };
 
   return (
-    <section className="bg-white border-b border-slate-200 w-full shrink-0 font-sans">
+    <aside className="bg-white border-l border-slate-200 w-full lg:w-64 shrink-0 font-sans flex flex-col lg:h-[calc(100vh-60px)] lg:max-h-none overflow-hidden">
 
       {/* Header (sempre visível — clique recolhe/expande o painel) */}
       <div
         onClick={togglePanel}
-        className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+        className="flex flex-col gap-1.5 px-3 py-2.5 border-b border-slate-100 cursor-pointer select-none shrink-0"
       >
-        <div className="flex items-center space-x-2 text-[#2D3748]">
-          <BookOpen className="w-4 h-4 text-[#1877F2]" />
-          <h2 className="font-extrabold text-sm">Materiais de Estudo</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[#2D3748]">
+            <BookOpen className="w-3.5 h-3.5 text-[#1877F2]" />
+            <h2 className="font-extrabold text-[11px] uppercase tracking-wide">Materiais</h2>
+          </div>
+          <button
+            className="p-0.5 text-slate-400 hover:text-slate-600 rounded transition-colors"
+            title={isPanelOpen ? 'Recolher materiais' : 'Expandir materiais'}
+          >
+            {isPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
           <span
-            className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
               selectedCount === 0
                 ? 'bg-amber-50 border-amber-200 text-amber-800'
                 : 'bg-blue-50 border-blue-200 text-[#1877F2]'
             }`}
           >
-            {selectedCount} de {sources.length} selecionados
+            {selectedCount} de {sources.length}
           </span>
-        </div>
-
-        <div className="flex items-center space-x-3">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onSelectAll();
             }}
-            className="text-[11px] font-bold text-[#1877F2] hover:underline"
+            className="text-[10px] font-bold text-[#1877F2] hover:underline"
           >
             {allSelected ? 'Desmarcar Todos' : 'Marcar Todos'}
-          </button>
-          <button
-            className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
-            title={isPanelOpen ? 'Recolher materiais' : 'Expandir materiais'}
-          >
-            {isPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
       {!isPanelOpen ? null : (
-      <div className="px-4 pb-4 space-y-3">
+      <div className="flex flex-col min-h-0 flex-1 p-3 space-y-2.5">
 
       {/* Simple Search Input */}
-      <div className="relative">
-        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+      <div className="relative shrink-0">
+        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar matéria ou conteúdo..."
-          className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
+          placeholder="Buscar..."
+          className="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
         />
       </div>
 
-      {/* ACCORDION GRID (MATÉRIA → SUBMATÉRIAS/CONTEÚDOS) — em grade, aproveitando a largura total */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 overflow-y-auto pr-1 max-h-[320px]">
+      {/* ACCORDION LIST (MATÉRIA → SUBMATÉRIAS/CONTEÚDOS) */}
+      <div className="space-y-1.5 overflow-y-auto pr-0.5 flex-1 min-h-0">
         {groupedCategories.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             Nenhum material encontrado com o termo "{searchTerm}".
@@ -212,32 +214,32 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
             return (
               <div
                 key={category.id}
-                className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs transition-all"
+                className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs transition-all"
               >
                 {/* Accordion Category Header */}
                 <div
                   onClick={() => toggleCategoryCollapse(category.id)}
-                  className="bg-slate-50/90 hover:bg-slate-100 px-3.5 py-2.5 flex items-center justify-between cursor-pointer select-none border-b border-slate-200/60 transition-colors"
+                  className="bg-slate-50/90 hover:bg-slate-100 px-2.5 py-2 flex items-center justify-between cursor-pointer select-none border-b border-slate-200/60 transition-colors gap-1"
                 >
-                  <div className="flex items-center space-x-2 overflow-hidden mr-1">
+                  <div className="flex items-center space-x-1.5 overflow-hidden mr-1 min-w-0">
                     {isCollapsed ? (
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
                     ) : (
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
                     )}
-                    <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md truncate ${category.corBadge || 'bg-slate-200 text-slate-800'}`}>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md truncate ${category.corBadge || 'bg-slate-200 text-slate-800'}`}>
                       {category.nome}
                     </span>
                   </div>
 
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-[10px] font-bold text-slate-500">
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <span className="text-[9px] font-bold text-slate-500">
                       {selectedInGroup}/{items.length}
                     </span>
 
                     <button
                       onClick={(e) => handleToggleCategoryAll(e, items)}
-                      className="text-[10px] text-[#1877F2] font-semibold hover:underline"
+                      className="text-[9px] text-[#1877F2] font-semibold hover:underline"
                       title={allInGroupSelected ? 'Desmarcar matéria' : 'Marcar matéria'}
                     >
                       {allInGroupSelected ? 'Desmarcar' : 'Marcar'}
@@ -247,7 +249,7 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
 
                 {/* Accordion Submatérias/Items List */}
                 {!isCollapsed && (
-                  <div className="p-2 space-y-2 bg-slate-50/40">
+                  <div className="p-1.5 space-y-1.5 bg-slate-50/40">
                     {items.length === 0 ? (
                       <div className="py-3 px-3 text-center text-[11px] text-slate-400 font-medium italic bg-white rounded-xl border border-dashed border-slate-200">
                         Nenhum material cadastrado nesta categoria ainda.
@@ -270,26 +272,26 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
                             <div
                               key={source.id}
                               onClick={() => onToggleSource(source.id)}
-                              className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                              className={`p-1.5 rounded-lg border transition-all cursor-pointer select-none ${
                                 source.selecionada
                                   ? 'bg-blue-50/70 border-blue-300 shadow-2xs'
                                   : 'bg-white border-slate-200 hover:bg-slate-50'
                               }`}
                             >
-                              <div className="flex items-start space-x-2.5">
+                              <div className="flex items-start space-x-2">
                                 <div className="mt-0.5 text-[#1877F2] shrink-0">
                                   {source.selecionada ? (
-                                    <CheckSquare className="w-4 h-4" />
+                                    <CheckSquare className="w-3.5 h-3.5" />
                                   ) : (
-                                    <Square className="w-4 h-4 text-slate-400" />
+                                    <Square className="w-3.5 h-3.5 text-slate-400" />
                                   )}
                                 </div>
 
                                 <div className="space-y-0.5 flex-1 min-w-0">
-                                  <p className="text-[11px] font-bold text-[#2D3748] leading-tight">
+                                  <p className="text-[10px] font-bold text-[#2D3748] leading-tight">
                                     {source.titulo}
                                   </p>
-                                  <div className="flex items-center space-x-2 text-[10px] font-semibold text-slate-500">
+                                  <div className="flex items-center space-x-2 text-[9px] font-semibold text-slate-500">
                                     <span>{source.banca}</span>
                                     <span>•</span>
                                     <span>{source.tamanho}</span>
@@ -312,26 +314,26 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
                               <div
                                 key={source.id}
                                 onClick={() => onToggleSource(source.id)}
-                                className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                                className={`p-1.5 rounded-lg border transition-all cursor-pointer select-none ${
                                   source.selecionada
                                     ? 'bg-blue-50/70 border-blue-300 shadow-2xs'
                                     : 'bg-white border-slate-200 hover:bg-slate-50'
                                 }`}
                               >
-                                <div className="flex items-start space-x-2.5">
+                                <div className="flex items-start space-x-2">
                                   <div className="mt-0.5 text-[#1877F2] shrink-0">
                                     {source.selecionada ? (
-                                      <CheckSquare className="w-4 h-4" />
+                                      <CheckSquare className="w-3.5 h-3.5" />
                                     ) : (
-                                      <Square className="w-4 h-4 text-slate-400" />
+                                      <Square className="w-3.5 h-3.5 text-slate-400" />
                                     )}
                                   </div>
 
                                   <div className="space-y-0.5 flex-1 min-w-0">
-                                    <p className="text-[11px] font-bold text-[#2D3748] leading-tight">
+                                    <p className="text-[10px] font-bold text-[#2D3748] leading-tight">
                                       {source.titulo}
                                     </p>
-                                    <div className="flex items-center space-x-2 text-[10px] font-semibold text-slate-500">
+                                    <div className="flex items-center space-x-2 text-[9px] font-semibold text-slate-500">
                                       <span>{source.banca}</span>
                                       <span>•</span>
                                       <span>{source.tamanho}</span>
@@ -353,19 +355,19 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
       </div>
 
       {/* Footer Protection Notice */}
-      <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-500 space-y-1">
+      <div className="pt-2 border-t border-slate-100 text-[9px] text-slate-500 space-y-0.5 shrink-0">
         <div className="flex items-center space-x-1 font-bold text-slate-600">
-          <Lock className="w-3 h-3 text-[#C85A00]" />
+          <Lock className="w-2.5 h-2.5 text-[#C85A00]" />
           <span>Proteção de Direitos e Cotas</span>
         </div>
         <p className="leading-snug">
-          Os PDFs originais são protegidos contra download direto. Converse com o Tutor IA para gerar resumos e simulados com base nas fontes marcadas.
+          PDFs protegidos contra download direto. Converse com o Tutor IA para gerar resumos e simulados.
         </p>
       </div>
 
       </div>
       )}
 
-    </section>
+    </aside>
   );
 };
