@@ -282,31 +282,32 @@ export function App() {
       {/* VIEW 2: LEARNER PLATFORM (ÁREA DO ALUNO - CLIENTE) */}
       {currentView === 'platform' && (
         <div className="flex-1 flex flex-col min-h-0">
-          
-          {/* Main 3-Column Studio Workspace */}
+
+          {/* Main Column (Materiais em cima + Chat abaixo) + Coluna do Estúdio à direita */}
           <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-            
-            {/* Left Column: Official Sources Checklist */}
-            <SourcesSidebar
-              sources={sources}
-              categories={siteConfig.sourceCategories}
-              onToggleSource={handleToggleSource}
-              onSelectAll={handleSelectAllSources}
-            />
 
-            {/* Middle Column: Active Tool Interactive Workspace */}
-            <Workspace
-              activeFeature={activeFeature}
-              selectedSources={sources}
-              isRetaFinal={isRetaFinal}
-              onQuotaUsed={() => {
-                fetchCotas().then((c) => setCotas(c));
-              }}
-              onSaveNote={handleSaveNote}
-              allQuestions={questions}
-            />
+            {/* Main Column: Materiais de Estudo (topo) + Workspace/Chat (abaixo) */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <SourcesSidebar
+                sources={sources}
+                categories={siteConfig.sourceCategories}
+                onToggleSource={handleToggleSource}
+                onSelectAll={handleSelectAllSources}
+              />
 
-            {/* Right Column: Studio 4-Group Feature Catalog */}
+              <Workspace
+                activeFeature={activeFeature}
+                selectedSources={sources}
+                isRetaFinal={isRetaFinal}
+                onQuotaUsed={() => {
+                  fetchCotas().then((c) => setCotas(c));
+                }}
+                onSaveNote={handleSaveNote}
+                allQuestions={questions}
+              />
+            </div>
+
+            {/* Right Column: Studio 4-Group Feature Catalog (abas expansíveis) */}
             <StudioSidebar
               features={FEATURES}
               activeFeatureId={activeFeatureId}

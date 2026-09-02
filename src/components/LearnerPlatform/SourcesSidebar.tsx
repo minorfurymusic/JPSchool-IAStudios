@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { FonteEstudo, CategoriaFonte } from '../../types';
-import { BookOpen, CheckSquare, Square, ChevronDown, ChevronRight, Search, Lock } from 'lucide-react';
+import { BookOpen, CheckSquare, Square, ChevronDown, ChevronRight, ChevronUp, Search, Lock } from 'lucide-react';
+
+const PANEL_OPEN_KEY = 'jpschool_materiais_panel_open';
 
 interface SourcesSidebarProps {
   sources: FonteEstudo[];
@@ -24,6 +26,23 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [isPanelOpen, setIsPanelOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(PANEL_OPEN_KEY);
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {}
+    return true;
+  });
+
+  const togglePanel = () => {
+    setIsPanelOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(PANEL_OPEN_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
 
   const selectedCount = sources.filter((s) => s.selecionada).length;
   const allSelected = sources.length > 0 && selectedCount === sources.length;
@@ -122,33 +141,48 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
   };
 
   return (
-    <aside className="bg-white border-r border-slate-200 w-full lg:w-80 shrink-0 p-4 space-y-3.5 font-sans flex flex-col lg:h-[calc(100vh-60px)] lg:max-h-none overflow-hidden">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+    <section className="bg-white border-b border-slate-200 w-full shrink-0 font-sans">
+
+      {/* Header (sempre visível — clique recolhe/expande o painel) */}
+      <div
+        onClick={togglePanel}
+        className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+      >
         <div className="flex items-center space-x-2 text-[#2D3748]">
           <BookOpen className="w-4 h-4 text-[#1877F2]" />
           <h2 className="font-extrabold text-sm">Materiais de Estudo</h2>
+          <span
+            className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
+              selectedCount === 0
+                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-blue-50 border-blue-200 text-[#1877F2]'
+            }`}
+          >
+            {selectedCount} de {sources.length} selecionados
+          </span>
         </div>
 
-        <button
-          onClick={onSelectAll}
-          className="text-[11px] font-bold text-[#1877F2] hover:underline flex items-center space-x-1"
-        >
-          <span>{allSelected ? 'Desmarcar Todos' : 'Marcar Todos'}</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectAll();
+            }}
+            className="text-[11px] font-bold text-[#1877F2] hover:underline"
+          >
+            {allSelected ? 'Desmarcar Todos' : 'Marcar Todos'}
+          </button>
+          <button
+            className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+            title={isPanelOpen ? 'Recolher materiais' : 'Expandir materiais'}
+          >
+            {isPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
-      {/* Global selection counter */}
-      <div
-        className={`text-[11px] font-bold px-3 py-1.5 rounded-xl border text-center ${
-          selectedCount === 0
-            ? 'bg-amber-50 border-amber-200 text-amber-800'
-            : 'bg-blue-50 border-blue-200 text-[#1877F2]'
-        }`}
-      >
-        {selectedCount} de {sources.length} materiais selecionados
-      </div>
+      {!isPanelOpen ? null : (
+      <div className="px-4 pb-4 space-y-3">
 
       {/* Simple Search Input */}
       <div className="relative">
@@ -162,8 +196,8 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
         />
       </div>
 
-      {/* VERTICAL ACCORDION LIST (MATÉRIA → SUBMATÉRIAS/CONTEÚDOS) */}
-      <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+      {/* ACCORDION GRID (MATÉRIA → SUBMATÉRIAS/CONTEÚDOS) — em grade, aproveitando a largura total */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 overflow-y-auto pr-1 max-h-[320px]">
         {groupedCategories.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             Nenhum material encontrado com o termo "{searchTerm}".
@@ -329,6 +363,9 @@ export const SourcesSidebar: React.FC<SourcesSidebarProps> = ({
         </p>
       </div>
 
-    </aside>
+      </div>
+      )}
+
+    </section>
   );
 };

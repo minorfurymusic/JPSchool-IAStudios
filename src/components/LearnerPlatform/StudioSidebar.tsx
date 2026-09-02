@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EstudioFeature, FeatureId, GroupId } from '../../types';
 import {
   Calendar,
@@ -23,6 +23,7 @@ import {
   CheckSquare,
   Flame,
   ChevronDown,
+  ChevronRight,
   Sparkles,
 } from 'lucide-react';
 
@@ -32,6 +33,8 @@ interface StudioSidebarProps {
   onSelectFeature: (featureId: FeatureId) => void;
   isRetaFinal: boolean;
 }
+
+const EXPANDED_GROUPS_KEY = 'jpschool_studio_expanded_groups';
 
 const iconMap: Record<string, React.FC<{ className?: string }>> = {
   Calendar,
@@ -63,6 +66,26 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
   onSelectFeature,
   isRetaFinal,
 }) => {
+  // Grupos ficam sempre recolhidos por padrão — só abrem quando o aluno clica,
+  // e esse estado persiste (localStorage) entre atualizações de página.
+  const [expandedGroups, setExpandedGroups] = useState<Record<GroupId, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(EXPANDED_GROUPS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return { g1: false, g2: false, g3: false, g4: false };
+  });
+
+  const toggleGroup = (groupId: GroupId) => {
+    setExpandedGroups((prev) => {
+      const next = { ...prev, [groupId]: !prev[groupId] };
+      try {
+        localStorage.setItem(EXPANDED_GROUPS_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
   // Group configs
   const groupMeta: Record<GroupId, { title: string; color: string; border: string; bg: string }> = {
     g1: {
@@ -112,33 +135,43 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         )}
       </div>
 
-      {/* Render Groups */}
+      {/* Render Groups as Expandable Accordions (permanência via localStorage) */}
       {groupOrder.map((groupId) => {
         const meta = groupMeta[groupId];
         const groupFeatures = features.filter((f) => f.grupo === groupId);
+        const isExpanded = !!expandedGroups[groupId];
+        const activeInGroup = groupFeatures.some((f) => f.id === activeFeatureId);
 
         return (
           <div
             key={groupId}
-            className={`rounded-2xl border ${meta.border} ${meta.bg} p-3 space-y-2 transition-all ${
+            className={`rounded-2xl border ${meta.border} ${meta.bg} overflow-hidden transition-all ${
               isRetaFinal && groupId === 'g4' ? 'shadow-md border-2 border-amber-400' : ''
             }`}
           >
-            {/* Group Title */}
-            <div className="flex items-center justify-between px-1">
-              <span className={`text-xs font-bold uppercase tracking-wider ${meta.color}`}>
-                {meta.title}
+            {/* Group Title (clique expande/recolhe) */}
+            <button
+              onClick={() => toggleGroup(groupId)}
+              className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+            >
+              <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${meta.color}`}>
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
+                <span>{meta.title}</span>
+                {activeInGroup && !isExpanded && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1877F2] shrink-0" title="Ferramenta ativa neste grupo" />
+                )}
               </span>
               {isRetaFinal && groupId === 'g4' && (
-                <span className="text-[10px] font-bold text-[#C85A00] flex items-center space-x-1">
+                <span className="text-[10px] font-bold text-[#C85A00] flex items-center space-x-1 shrink-0">
                   <Flame className="w-3 h-3 text-[#C85A00]" />
                   <span>Topo</span>
                 </span>
               )}
-            </div>
+            </button>
 
             {/* Group Feature Buttons */}
-            <div className="space-y-1.5">
+            {isExpanded && (
+            <div className="space-y-1.5 px-3 pb-3">
               {groupFeatures.map((feature) => {
                 const IconComponent = iconMap[feature.icone] || BookOpen;
                 const isActive = activeFeatureId === feature.id;
@@ -184,6 +217,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                 );
               })}
             </div>
+            )}
 
           </div>
         );
